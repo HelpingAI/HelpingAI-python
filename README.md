@@ -1,6 +1,6 @@
 # HelpingAI
 
-The official Python library for the [HelpingAI](https://helpingai.co) API, providing emotionally intelligent AI models to help developers create better software.
+The official Python library for the [HelpingAI](https://helpingai.co) API
 
 [![PyPI version](https://badge.fury.io/py/HelpingAI.svg)](https://badge.fury.io/py/HelpingAI)
 [![Python Versions](https://img.shields.io/pypi/pyversions/HelpingAI.svg)](https://pypi.org/project/HelpingAI/)
