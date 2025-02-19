@@ -5,15 +5,6 @@ The official Python library for the [HelpingAI](https://helpingai.co) API
 [![PyPI version](https://badge.fury.io/py/HelpingAI.svg)](https://badge.fury.io/py/HelpingAI)
 [![Python Versions](https://img.shields.io/pypi/pyversions/HelpingAI.svg)](https://pypi.org/project/HelpingAI/)
 
-## Features
-
-- 🤖 Advanced chat completions with streaming support
-- 🎯 Easy model selection and parameter customization
-- 🔄 Robust error handling with automatic retries
-- 🛡️ Built-in rate limiting protection
-- 📝 Comprehensive type hints for better IDE support
-- 🔒 Secure API communication with authentication
-- 🚀 Optimized for production environments
 
 ## Installation
 
