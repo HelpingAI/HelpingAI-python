@@ -2,14 +2,14 @@
 
 The official Python library for the [HelpingAI](https://helpingai.co) API
 
-[![PyPI version](https://badge.fury.io/py/HelpingAI.svg)](https://badge.fury.io/py/HelpingAI)
-[![Python Versions](https://img.shields.io/pypi/pyversions/HelpingAI.svg)](https://pypi.org/project/HelpingAI/)
+[![PyPI version](https://badge.fury.io/py/helpingai.svg)](https://badge.fury.io/py/helpingai)
+[![Python Versions](https://img.shields.io/pypi/pyversions/helpingai.svg)](https://pypi.org/project/helpingai/)
 
 
 ## Installation
 
 ```bash
-pip install HelpingAI
+pip install helpingai
 ```
 
 ## Quick Start
@@ -23,7 +23,7 @@ export HAI_API_KEY='your-api-key'
 Basic usage example:
 
 ```python
-from HelpingAI import HAI
+from helpingai import HAI
 
 hai = HAI()
 
@@ -69,7 +69,7 @@ response = hai.chat.completions.create(
 ### Robust Error Handling
 
 ```python
-from HelpingAI import HAI, HAIError, RateLimitError, InvalidRequestError
+from helpingai import HAI, HAIError, RateLimitError, InvalidRequestError
 import time
 
 def make_completion_with_retry(messages, max_retries=3):
@@ -109,4 +109,4 @@ For detailed information, check out our comprehensive documentation:
 ## Support
 
 - [Submit an issue](https://github.com/HelpingAI/HelpingAI-python/issues)
-- [API Status](https://status.helpingai.co)
+

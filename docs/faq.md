@@ -8,12 +8,12 @@ HelpingAI offers AI models with advanced emotional intelligence through a simple
 
 ### How do I get started?
 
-1. Install the SDK: `pip install HelpingAI`
+1. Install the SDK: `pip install helpingai`
 2. Get an API key from [helpingai.co/dashboard](https://helpingai.co/dashboard)
 3. Start making requests:
 
 ```python
-from HelpingAI import HAI
+from helpingai import HAI
 hai = HAI('your-api-key')
 ```
 

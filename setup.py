@@ -8,14 +8,14 @@ with open("README.md", "r", encoding="utf-8") as f:
     long_description = f.read()
 
 setup(
-    name="HelpingAI",
+    name="helpingai",
     version=VERSION,  # noqa: F821
     description="Python client library for the HelpingAI API",
     long_description=long_description,
     long_description_content_type="text/markdown",
     author="HelpingAI",
-    author_email="support@helpingai.co",
-    url="https://github.com/helpingai/hai-python",
+    author_email="helpingaiemotional@gmail.com",
+    url="https://github.com/HelpingAI/HelpingAI-python",
     packages=find_packages(exclude=["tests", "tests.*"]),
     install_requires=[
         "requests",

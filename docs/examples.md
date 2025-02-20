@@ -5,7 +5,7 @@ Comprehensive examples for using the HelpingAI Python SDK.
 ## Installation
 
 ```bash
-pip install HelpingAI
+pip install helpingai
 ```
 
 ## Basic Usage
@@ -13,7 +13,7 @@ pip install HelpingAI
 ### Initialize Client
 
 ```python
-from HelpingAI import HAI
+from helpingai import HAI
 
 # Initialize with API key
 client = HAI(
@@ -122,7 +122,7 @@ response = client.chat.completions.create(
 ## Error Handling
 
 ```python
-from HelpingAI import HAI, HAIError, RateLimitError, InvalidRequestError
+from helpingai import HAI, HAIError, RateLimitError, InvalidRequestError
 import time
 
 client = HAI()
@@ -161,7 +161,7 @@ except Exception as e:
 
 ```python
 import os
-from HelpingAI import HAI
+from helpingai import HAI
 
 # Set API key in environment
 os.environ["HAI_API_KEY"] = "your-api-key"
@@ -174,7 +174,7 @@ client = HAI()
 
 ```python
 from contextlib import contextmanager
-from HelpingAI import HAI, HAIError, RateLimitError
+from helpingai import HAI, HAIError, RateLimitError
 
 @contextmanager
 def hai_context():
