@@ -13,7 +13,7 @@ HelpingAI offers AI models with advanced emotional intelligence through a simple
 3. Start making requests:
 
 ```python
-from helpingai import HAI
+from HelpingAI import HAI
 hai = HAI('your-api-key')
 ```
 

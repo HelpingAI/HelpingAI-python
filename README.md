@@ -9,7 +9,7 @@ The official Python library for the [HelpingAI](https://helpingai.co) API
 ## Installation
 
 ```bash
-pip install helpingai
+pip install HelpingAI
 ```
 
 ## Quick Start
@@ -23,7 +23,7 @@ export HAI_API_KEY='your-api-key'
 Basic usage example:
 
 ```python
-from helpingai import HAI
+from HelpingAI import HAI
 
 hai = HAI()
 
@@ -69,7 +69,7 @@ response = hai.chat.completions.create(
 ### Robust Error Handling
 
 ```python
-from helpingai import HAI, HAIError, RateLimitError, InvalidRequestError
+from HelpingAI import HAI, HAIError, RateLimitError, InvalidRequestError
 import time
 
 def make_completion_with_retry(messages, max_retries=3):

@@ -1,6 +1,6 @@
 from setuptools import setup, find_packages
 
-from hai.version import VERSION
+from HelpingAI.version import VERSION
 
 
 # Read README for long description
@@ -8,7 +8,7 @@ with open("README.md", "r", encoding="utf-8") as f:
     long_description = f.read()
 
 setup(
-    name="helpingai",
+    name="HelpingAI",
     version=VERSION,  # noqa: F821
     description="Python client library for the HelpingAI API",
     long_description=long_description,

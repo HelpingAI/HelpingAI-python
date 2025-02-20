@@ -8,7 +8,7 @@ Welcome to the HelpingAI Python library! This guide will help you install, authe
 You can install the HelpingAI library using pip:
 
 ```bash
-pip install helpingai
+pip install HelpingAI
 ```
 
 ## Authentication
@@ -28,7 +28,7 @@ export HAI_API_KEY='your-api-key'
 Alternatively, you can pass the API key when creating the client:
 
 ```python
-from helpingai import HAI
+from HelpingAI import HAI
 
 hai = HAI(api_key='your-api-key')
 ```
@@ -38,7 +38,7 @@ hai = HAI(api_key='your-api-key')
 Here's a simple example to get you started:
 
 ```python
-from helpingai import HAI
+from HelpingAI import HAI
 
 # Create the client instance (API key can be passed explicitly or through environment variables)
 hai = HAI()
@@ -122,7 +122,7 @@ completion = hai.chat.completions.create(
 The SDK provides specific exception types for handling different errors. Here's an example:
 
 ```python
-from helpingai import HAI, HAIError, RateLimitError, InvalidRequestError
+from HelpingAI import HAI, HAIError, RateLimitError, InvalidRequestError
 
 hai = HAI()
 

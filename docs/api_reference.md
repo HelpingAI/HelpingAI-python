@@ -174,7 +174,7 @@ The library provides several specific error types:
 ## Basic Usage
 
 ```python
-from helpingai import HAI
+from HelpingAI import HAI
 
 # Initialize the client
 hai = HAI(api_key="your-api-key")
