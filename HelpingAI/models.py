@@ -52,12 +52,27 @@ class Models:
             APIError: If the request fails.
             AuthenticationError: If authentication fails.
         """
-        response = self._client._request(
-            "GET",
-            "/models",
-            auth_required=False  # Models endpoint is public
-        )
-        return [Model.from_api_data(model_id) for model_id in response]
+        try:
+            response = self._client._request(
+                "GET",
+                "/models",
+                auth_required=False  # Models endpoint is public
+            )
+            return [Model.from_api_data(model_id) for model_id in response]
+        except Exception:
+            # Fallback to hardcoded models if API call fails
+            return [
+                Model(
+                    id="Helpingai3-raw",
+                    name="HelpingAI3 Raw",
+                    description="Advanced language model with enhanced emotional intelligence and contextual awareness"
+                ),
+                Model(
+                    id="Dhanishtha-2.0-preview",
+                    name="Dhanishtha-2.0 Preview",
+                    description="Revolutionary reasoning AI model with intermediate thinking capabilities and multi-phase reasoning"
+                )
+            ]
 
     def retrieve(self, model_id: str) -> Model:
         """Retrieve a specific model.
@@ -69,13 +84,32 @@ class Models:
             Model: The requested model.
             
         Raises:
-            APIError: If the model doesn't exist or the request fails.
-            AuthenticationError: If authentication fails.
+            ValueError: If the model doesn't exist.
         """
-        # Since HAI API currently doesn't support individual model retrieval,
-        # we'll get the list and find the requested model
-        models = self.list()
-        for model in models:
-            if model.id == model_id:
-                return model
-        raise ValueError(f"Model '{model_id}' not found")
+        # Define available models with detailed information
+        available_models = {
+            "Helpingai3-raw": Model(
+                id="Helpingai3-raw",
+                name="HelpingAI3 Raw",
+                description="Advanced language model with enhanced emotional intelligence, trained on emotional dialogues, therapeutic exchanges, and crisis response scenarios"
+            ),
+            "Dhanishtha-2.0-preview": Model(
+                id="Dhanishtha-2.0-preview",
+                name="Dhanishtha-2.0 Preview",
+                description="World's first intermediate thinking model with multi-phase reasoning, self-correction capabilities, and structured emotional reasoning (SER)"
+            )
+        }
+        
+        if model_id in available_models:
+            return available_models[model_id]
+        
+        # Try to get from API as fallback
+        try:
+            models = self.list()
+            for model in models:
+                if model.id == model_id:
+                    return model
+        except Exception:
+            pass
+            
+        raise ValueError(f"Model '{model_id}' not found. Available models: {list(available_models.keys())}")
