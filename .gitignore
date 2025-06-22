@@ -74,6 +74,3 @@ ENV/
 
 # Logs
 *.log
-
-# Local files
-lol.py

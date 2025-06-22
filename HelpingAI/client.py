@@ -86,14 +86,14 @@ class BaseClient:
             HAIError or its subclasses on error.
         """
         headers = {
-            "Content-Type": "application/json",
-            "User-Agent": f"hai-python/{VERSION} "
-                         f"Python/{platform.python_version()} "
-                         f"{platform.system()}/{platform.release()}"
+            "Content-Type": "application/json"
         }
         
         if auth_required:
             headers["Authorization"] = f"Bearer {self.api_key}"
+        
+        # Only add optional headers if they might be needed
+        # Some APIs are sensitive to extra headers
         if self.organization:
             headers["HAI-Organization"] = self.organization
 
@@ -116,15 +116,39 @@ class BaseClient:
                 except:
                     error_data = {"error": {"message": "Unknown error occurred"}}
                 
-                error_message = error_data.get("error", {}).get("message", "Unknown error")
-                error_type = error_data.get("error", {}).get("type")
-                error_code = error_data.get("error", {}).get("code")
+                # Handle different error response formats
+                if isinstance(error_data.get("error"), dict):
+                    # Nested format: {"error": {"message": "...", "type": "...", "code": "..."}}
+                    error_message = error_data.get("error", {}).get("message", "Unknown error")
+                    error_type = error_data.get("error", {}).get("type")
+                    error_code = error_data.get("error", {}).get("code")
+                elif isinstance(error_data.get("error"), str):
+                    # Flat format: {"error": "Request failed with status code 400"}
+                    error_message = error_data.get("error", "Unknown error")
+                    error_type = None
+                    error_code = None
+                else:
+                    # Fallback for other formats
+                    error_message = error_data.get("message", "Unknown error")
+                    error_type = error_data.get("type")
+                    error_code = error_data.get("code")
                 
                 if response.status_code == 401:
                     raise InvalidAPIKeyError(response.status_code, response.headers)
                 elif response.status_code == 400:
+                    # More robust error handling for model errors
                     if "model" in error_message.lower():
-                        raise InvalidModelError(error_message.split("'")[1], response.status_code, response.headers)
+                        # Try to extract model name, but fallback gracefully
+                        import re
+                        match = re.search(r"'(.*?)'", error_message)
+                        model_name = match.group(1) if match else None
+                        if model_name:
+                            raise InvalidModelError(model_name, response.status_code, response.headers)
+                        else:
+                            raise InvalidModelError("Unknown model", response.status_code, response.headers)
+                    # Add hint for generic 400 errors when not streaming
+                    if not stream and "Request failed with status code" in error_message:
+                        error_message += ". This model or endpoint might require streaming. Try setting stream=True."
                     raise InvalidRequestError(error_message, status_code=response.status_code, headers=response.headers)
                 elif response.status_code == 429:
                     raise TooManyRequestsError(response.status_code, response.headers)
@@ -200,7 +224,8 @@ class ChatCompletions:
             created=completion.created,
             model=completion.model,
             choices=filtered_choices,
-            system_fingerprint=completion.system_fingerprint,            usage=completion.usage
+            system_fingerprint=completion.system_fingerprint,            
+            usage=completion.usage
         )
 
     def _filter_stream_chunk(self, chunk: ChatCompletionChunk, state: Dict[str, bool]) -> ChatCompletionChunk:
