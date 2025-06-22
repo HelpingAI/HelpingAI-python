@@ -155,12 +155,25 @@ class ChatCompletions:
         self._client: "HAI" = client
 
     def _filter_think_ser_blocks(self, text: Optional[str]) -> Optional[str]:
-        """Remove <think>...</think> and <ser>...</ser> blocks from text."""
+        """Remove <think>...</think> and <ser>...</ser> blocks from text and clean up excessive line gaps."""
         if not text:
             return text
         import re
+        
+        # Remove think and ser blocks
         text = re.sub(r"<think>[\s\S]*?</think>", "", text)
         text = re.sub(r"<ser>[\s\S]*?</ser>", "", text)
+        
+        # Fix broken words that may have been split across lines
+        text = re.sub(r"(\w)-\s*\n\s*(\w)", r"\1\2", text)
+        
+        # Remove excessive empty lines (more than 2 consecutive newlines become 2)
+        text = re.sub(r"\n{3,}", "\n\n", text)
+        
+        # Remove extra spaces that might be left behind
+        text = re.sub(r" {2,}", " ", text)
+        text = text.strip()
+
         return text
 
     def _filter_completion(self, completion: ChatCompletion) -> ChatCompletion:
@@ -187,16 +200,17 @@ class ChatCompletions:
             created=completion.created,
             model=completion.model,
             choices=filtered_choices,
-            system_fingerprint=completion.system_fingerprint,
-            usage=completion.usage
+            system_fingerprint=completion.system_fingerprint,            usage=completion.usage
         )
 
-    def _filter_stream_chunk(self, chunk: ChatCompletionChunk) -> ChatCompletionChunk:
+    def _filter_stream_chunk(self, chunk: ChatCompletionChunk, state: Dict[str, bool]) -> ChatCompletionChunk:
         """Return a ChatCompletionChunk with <think> and <ser> blocks removed from delta content."""
         filtered_choices = []
         for choice in chunk.choices:
             delta = choice.delta
-            filtered_content = self._filter_think_ser_blocks(delta.content)
+            content = delta.content
+            filtered_content = self._filter_streaming_content(content, state) if content else content
+            
             filtered_delta = ChoiceDelta(
                 content=filtered_content,
                 function_call=delta.function_call,
@@ -217,6 +231,58 @@ class ChatCompletions:
             choices=filtered_choices,
             system_fingerprint=chunk.system_fingerprint
         )
+
+    def _filter_streaming_content(self, content: str, state: Dict[str, bool]) -> Optional[str]:
+        """Filter streaming content based on reasoning state, similar to the webscout example."""
+        if not content:
+            return content
+        
+        result = ""
+        i = 0
+        while i < len(content):
+            # Check for opening tags - including partial matches at chunk boundaries
+            remaining = content[i:]
+            
+            if remaining.startswith("<think>"):
+                state["is_reasoning"] = True
+                i += 7
+                continue
+            elif remaining.startswith("</think>"):
+                state["is_reasoning"] = False
+                i += 8
+                continue
+            elif remaining.startswith("<ser>"):
+                state["is_ser"] = True
+                i += 5
+                continue
+            elif remaining.startswith("</ser>"):
+                state["is_ser"] = False
+                i += 6
+                continue
+            # Handle partial tag matches that might be split across chunks
+            elif remaining.startswith("<think") or remaining.startswith("<ser") or remaining.startswith("</think") or remaining.startswith("</ser"):
+                # If we find a partial tag, assume we're entering a reasoning/ser block
+                if remaining.startswith("<think") or remaining.startswith("<ser"):
+                    if remaining.startswith("<think"):
+                        state["is_reasoning"] = True
+                    else:
+                        state["is_ser"] = True
+                else:  # closing tags
+                    if remaining.startswith("</think"):
+                        state["is_reasoning"] = False
+                    else:
+                        state["is_ser"] = False
+                # Skip the rest of this chunk to avoid partial content
+                break
+                
+            # If we're not in reasoning or ser mode, add the character
+            if not state["is_reasoning"] and not state["is_ser"]:
+                result += content[i]
+            
+            i += 1
+        
+        # Return None if result is empty or whitespace-only to avoid sending empty chunks
+        return result.strip() if result.strip() else None
 
     def create(
         self,
@@ -299,7 +365,7 @@ class ChatCompletions:
         if stream:
             stream_iter = self._handle_stream_response(cast(requests.Response, response))
             if hide_think:
-                return (self._filter_stream_chunk(chunk) for chunk in stream_iter)
+                return self._create_filtered_stream_generator(stream_iter)
             return stream_iter
         completion = self._handle_response(cast(Dict[str, Any], response))
         if hide_think:
@@ -439,40 +505,111 @@ class ChatCompletions:
                 except Exception as e:
                     raise HAIError(f"Error parsing stream: {str(e)}")
 
-    def _filtered_stream_response(self, stream_iter: Iterator[ChatCompletionChunk]) -> Iterator[ChatCompletionChunk]:
-        """Yield ChatCompletionChunk objects with <think> and <ser> blocks removed from content fields."""
-        import re
-        def remove_blocks(text: Optional[str]) -> Optional[str]:
-            if not text:
-                return text
-            text = re.sub(r"<think>[\s\S]*?</think>", "", text)
-            text = re.sub(r"<ser>[\s\S]*?</ser>", "", text)
-            return text
+    def _create_filtered_stream_generator(self, stream_iter: Iterator[ChatCompletionChunk]) -> Iterator[ChatCompletionChunk]:
+        """Create a generator that filters streaming chunks based on reasoning state."""
+        # State to track if we're in reasoning or ser blocks
+        is_reasoning = False
+        is_ser = False
+        
+        # Buffer to accumulate content for tag detection
+        content_buffer = ""
+        
         for chunk in stream_iter:
-            new_choices = []
+            # Process each choice in the chunk
+            filtered_choices = []
+            
             for choice in chunk.choices:
-                new_delta = None
-                if choice.delta:
-                    new_delta = ChoiceDelta(
-                        content=remove_blocks(choice.delta.content),
-                        function_call=choice.delta.function_call,
-                        role=choice.delta.role,
-                        tool_calls=choice.delta.tool_calls
+                if choice.delta and choice.delta.content:
+                    content = choice.delta.content
+                    content_buffer += content
+                    
+                    # Process buffer content character by character
+                    output_content = ""
+                    i = 0
+                    
+                    while i < len(content_buffer):
+                        if not is_reasoning and not is_ser:
+                            # Check for start of reasoning blocks
+                            remaining = content_buffer[i:]
+                            if remaining.startswith("<think>"):
+                                is_reasoning = True
+                                i += 7
+                                continue
+                            elif remaining.startswith("<ser>"):
+                                is_ser = True
+                                i += 5
+                                continue
+                            # Check for partial tags at end of buffer (might be split across chunks)
+                            elif remaining.startswith("<think") or remaining.startswith("<ser") or remaining.startswith("<"):
+                                # Might be start of a tag, keep in buffer for next chunk
+                                content_buffer = remaining
+                                break
+                            else:
+                                # Regular content, add to output
+                                output_content += content_buffer[i]
+                                i += 1
+                        else:
+                            # We're in a reasoning/ser block, look for closing tag
+                            remaining = content_buffer[i:]
+                            if is_reasoning and remaining.startswith("</think>"):
+                                is_reasoning = False
+                                i += 8
+                                continue
+                            elif is_ser and remaining.startswith("</ser>"):
+                                is_ser = False
+                                i += 6
+                                continue
+                            # Check for partial closing tags
+                            elif remaining.startswith("</think") or remaining.startswith("</ser") or remaining.startswith("</") or remaining.startswith("<"):
+                                # Might be start of closing tag, keep in buffer
+                                content_buffer = remaining
+                                break
+                            else:
+                                # Skip this character (inside reasoning block)
+                                i += 1
+                    
+                    # If we processed all characters, clear the buffer
+                    if i >= len(content_buffer):
+                        content_buffer = ""
+                    
+                    # Create chunk only if we have output content
+                    if output_content:
+                        filtered_delta = ChoiceDelta(
+                            content=output_content,
+                            function_call=choice.delta.function_call,
+                            role=choice.delta.role,
+                            tool_calls=choice.delta.tool_calls
+                        )
+                        filtered_choice = Choice(
+                            index=choice.index,
+                            delta=filtered_delta,
+                            finish_reason=choice.finish_reason,
+                            logprobs=choice.logprobs
+                        )
+                        filtered_choices.append(filtered_choice)
+                        
+                else:
+                    # No content to filter, keep the delta as is (for metadata chunks)
+                    filtered_choice = Choice(
+                        index=choice.index,
+                        delta=choice.delta,
+                        finish_reason=choice.finish_reason,
+                        logprobs=choice.logprobs
                     )
-                new_choice = Choice(
-                    index=choice.index,
-                    delta=new_delta,
-                    finish_reason=choice.finish_reason,
-                    logprobs=choice.logprobs
+                    filtered_choices.append(filtered_choice)
+            
+            # Only yield chunk if we have filtered content or it's a metadata chunk
+            if filtered_choices:
+                yield ChatCompletionChunk(
+                    id=chunk.id,
+                    created=chunk.created,
+                    model=chunk.model,
+                    choices=filtered_choices,
+                    system_fingerprint=chunk.system_fingerprint
                 )
-                new_choices.append(new_choice)
-            yield ChatCompletionChunk(
-                id=chunk.id,
-                created=chunk.created,
-                model=chunk.model,
-                choices=new_choices,
-                system_fingerprint=chunk.system_fingerprint
-            )
+            elif not any(choice.delta and choice.delta.content for choice in chunk.choices):
+                # No content in this chunk, yield as-is (metadata chunks)
+                yield chunk
 
 class Chat:
     """Chat API interface for the HelpingAI client.
