@@ -506,110 +506,121 @@ class ChatCompletions:
                     raise HAIError(f"Error parsing stream: {str(e)}")
 
     def _create_filtered_stream_generator(self, stream_iter: Iterator[ChatCompletionChunk]) -> Iterator[ChatCompletionChunk]:
-        """Create a generator that filters streaming chunks based on reasoning state."""
-        # State to track if we're in reasoning or ser blocks
-        is_reasoning = False
-        is_ser = False
+        """Create a generator that filters streaming chunks, cleans up whitespace, and handles partial tags."""
+        is_in_think = False
+        is_in_ser = False
+        buffer = ""
         
-        # Buffer to accumulate content for tag detection
-        content_buffer = ""
-        
+        consecutive_newlines = 0
+        last_char_was_space = False
+        stream_started = False
+
         for chunk in stream_iter:
-            # Process each choice in the chunk
-            filtered_choices = []
-            
+            new_choices = []
+            should_yield_chunk = False
+
             for choice in chunk.choices:
                 if choice.delta and choice.delta.content:
-                    content = choice.delta.content
-                    content_buffer += content
-                    
-                    # Process buffer content character by character
+                    buffer += choice.delta.content
                     output_content = ""
-                    i = 0
-                    
-                    while i < len(content_buffer):
-                        if not is_reasoning and not is_ser:
-                            # Check for start of reasoning blocks
-                            remaining = content_buffer[i:]
-                            if remaining.startswith("<think>"):
-                                is_reasoning = True
-                                i += 7
+                    processed_len = 0
+
+                    while processed_len < len(buffer):
+                        remaining = buffer[processed_len:]
+
+                        if is_in_think:
+                            if remaining.startswith("</think>"):
+                                is_in_think = False
+                                processed_len += 8
+                                last_char_was_space = True
                                 continue
-                            elif remaining.startswith("<ser>"):
-                                is_ser = True
-                                i += 5
-                                continue
-                            # Check for partial tags at end of buffer (might be split across chunks)
-                            elif remaining.startswith("<think") or remaining.startswith("<ser") or remaining.startswith("<"):
-                                # Might be start of a tag, keep in buffer for next chunk
-                                content_buffer = remaining
+                            if "</think>".startswith(remaining):
                                 break
-                            else:
-                                # Regular content, add to output
-                                output_content += content_buffer[i]
-                                i += 1
+                            processed_len += 1
+                            continue
+
+                        if is_in_ser:
+                            if remaining.startswith("</ser>"):
+                                is_in_ser = False
+                                processed_len += 6
+                                last_char_was_space = True
+                                continue
+                            if "</ser>".startswith(remaining):
+                                break
+                            processed_len += 1
+                            continue
+
+                        if remaining.startswith("<think>"):
+                            is_in_think = True
+                            processed_len += 7
+                            continue
+                        
+                        if remaining.startswith("<ser>"):
+                            is_in_ser = True
+                            processed_len += 5
+                            continue
+
+                        if "<think>".startswith(remaining) or "<ser>".startswith(remaining):
+                            break
+
+                        char = buffer[processed_len]
+                        
+                        if not stream_started and char.isspace():
+                            processed_len += 1
+                            continue
+                        stream_started = True
+
+                        if char == '\n':
+                            consecutive_newlines += 1
+                            if consecutive_newlines <= 2:
+                                output_content += char
+                            last_char_was_space = False
+                        elif char.isspace():
+                            if not last_char_was_space:
+                                output_content += ' '
+                            last_char_was_space = True
                         else:
-                            # We're in a reasoning/ser block, look for closing tag
-                            remaining = content_buffer[i:]
-                            if is_reasoning and remaining.startswith("</think>"):
-                                is_reasoning = False
-                                i += 8
-                                continue
-                            elif is_ser and remaining.startswith("</ser>"):
-                                is_ser = False
-                                i += 6
-                                continue
-                            # Check for partial closing tags
-                            elif remaining.startswith("</think") or remaining.startswith("</ser") or remaining.startswith("</") or remaining.startswith("<"):
-                                # Might be start of closing tag, keep in buffer
-                                content_buffer = remaining
-                                break
-                            else:
-                                # Skip this character (inside reasoning block)
-                                i += 1
-                    
-                    # If we processed all characters, clear the buffer
-                    if i >= len(content_buffer):
-                        content_buffer = ""
-                    
-                    # Create chunk only if we have output content
+                            consecutive_newlines = 0
+                            last_char_was_space = False
+                            output_content += char
+                        
+                        processed_len += 1
+
+                    buffer = buffer[processed_len:]
+
                     if output_content:
-                        filtered_delta = ChoiceDelta(
+                        should_yield_chunk = True
+                        new_delta = ChoiceDelta(
                             content=output_content,
-                            function_call=choice.delta.function_call,
                             role=choice.delta.role,
+                            function_call=choice.delta.function_call,
                             tool_calls=choice.delta.tool_calls
                         )
-                        filtered_choice = Choice(
+                        new_choice = Choice(
                             index=choice.index,
-                            delta=filtered_delta,
+                            delta=new_delta,
                             finish_reason=choice.finish_reason,
                             logprobs=choice.logprobs
                         )
-                        filtered_choices.append(filtered_choice)
-                        
+                        new_choices.append(new_choice)
+                    elif choice.finish_reason:
+                        should_yield_chunk = True
+                        new_delta = ChoiceDelta(content=None, role=choice.delta.role, function_call=choice.delta.function_call, tool_calls=choice.delta.tool_calls)
+                        new_choice = Choice(index=choice.index, delta=new_delta, finish_reason=choice.finish_reason, logprobs=choice.logprobs)
+                        new_choices.append(new_choice)
+
                 else:
-                    # No content to filter, keep the delta as is (for metadata chunks)
-                    filtered_choice = Choice(
-                        index=choice.index,
-                        delta=choice.delta,
-                        finish_reason=choice.finish_reason,
-                        logprobs=choice.logprobs
-                    )
-                    filtered_choices.append(filtered_choice)
+                    should_yield_chunk = True
+                    new_choices.append(choice)
             
-            # Only yield chunk if we have filtered content or it's a metadata chunk
-            if filtered_choices:
+            if should_yield_chunk:
                 yield ChatCompletionChunk(
                     id=chunk.id,
                     created=chunk.created,
                     model=chunk.model,
-                    choices=filtered_choices,
+                    choices=new_choices,
                     system_fingerprint=chunk.system_fingerprint
                 )
-            elif not any(choice.delta and choice.delta.content for choice in chunk.choices):
-                # No content in this chunk, yield as-is (metadata chunks)
-                yield chunk
 
 class Chat:
     """Chat API interface for the HelpingAI client.

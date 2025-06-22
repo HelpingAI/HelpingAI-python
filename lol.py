@@ -1,16 +1,17 @@
 from HelpingAI import HAI
-
-hai = HAI(api_key="")
+from rich import print
+hai = HAI(api_key="hl-7d62542a-a836-4e2d-930b-32a0a72232e4")
 
 response = hai.chat.completions.create(
     model="Dhanishtha-2.0-preview",
     messages=[
-        {"role": "system", "content": "You are an expert in emotional intelligence."},
-        {"role": "user", "content": "What makes a good leader?"}
+        # {"role": "system", "content": "You are an expert in emotional intelligence."},
+        {"role": "user", "content": "Is there a sixth Fermat prime?"},
     ],
-    stream=True,  # Test streaming response
-    hide_think=True
+    hide_think=True,
+    stream=True
 )
+
 for chunk in response:
     if chunk.choices[0].delta.content:
-        print(chunk.choices[0].delta.content, end="", flush=True)
+        print(chunk.choices[0].delta.content, end="")
