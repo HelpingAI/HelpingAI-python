@@ -22,6 +22,9 @@ from .version import VERSION
 from .client import HAI
 from .error import *
 
+from .base_models import *
+from .models import *
+
 
 __version__ = VERSION
 __all__ = [
@@ -34,4 +37,17 @@ __all__ = [
     "ServiceUnavailableError",
     "APIConnectionError",
     "TimeoutError",
+    # Expose base models and Model
+    "BaseModel",
+    "ChatCompletion",
+    "ChatCompletionChunk",
+    "ChatCompletionMessage",
+    "Choice",
+    "ChoiceDelta",
+    "CompletionUsage",
+    "ToolCall",
+    "ToolFunction",
+    "FunctionCall",
+    "Model",
+    "Models",
 ]

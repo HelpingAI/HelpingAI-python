@@ -3,7 +3,7 @@
 import json
 import platform
 import os
-from typing import Optional, Dict, Any, Union, Iterator, List, Literal, cast
+from typing import Optional, Dict, Any, Union, Iterator, List, Literal, cast, TYPE_CHECKING
 
 import requests
 
@@ -38,8 +38,14 @@ from .base_models import (
 )
 from .models import Models
 
+if TYPE_CHECKING:
+    from .client import HAI
+
 class BaseClient:
-    """Base client with common functionality."""
+    """Base client with common functionality for the HelpingAI API.
+
+    Handles authentication, session management, and low-level HTTP requests.
+    """
     def __init__(
         self,
         api_key: Optional[str] = None,
@@ -47,14 +53,13 @@ class BaseClient:
         base_url: Optional[str] = None,
         timeout: float = 60.0,
     ) -> None:
-        self.api_key = api_key or os.getenv("HAI_API_KEY")
+        self.api_key: str = api_key or os.getenv("HAI_API_KEY")  # type: ignore
         if not self.api_key:
             raise NoAPIKeyError()
-        
-        self.organization = organization
-        self.base_url = (base_url or "https://api.helpingai.co/v1").rstrip("/")
-        self.timeout = timeout
-        self.session = requests.Session()
+        self.organization: Optional[str] = organization
+        self.base_url: str = (base_url or "https://api.helpingai.co/v1").rstrip("/")
+        self.timeout: float = timeout
+        self.session: requests.Session = requests.Session()
 
     def _request(
         self,
@@ -66,7 +71,20 @@ class BaseClient:
         stream: bool = False,
         auth_required: bool = True,
     ) -> Any:
-        """Make a request to the HAI API."""
+        """Make a request to the HAI API.
+
+        Args:
+            method: HTTP method (e.g., 'GET', 'POST').
+            path: API endpoint path.
+            params: Query parameters.
+            json_data: JSON body data.
+            stream: Whether to stream the response.
+            auth_required: Whether authentication is required.
+        Returns:
+            The response data (parsed JSON or Response object if streaming).
+        Raises:
+            HAIError or its subclasses on error.
+        """
         headers = {
             "Content-Type": "application/json",
             "User-Agent": f"hai-python/{VERSION} "
@@ -129,9 +147,76 @@ class BaseClient:
             raise APIError(f"Error communicating with HAI API: {str(e)}")
 
 class ChatCompletions:
-    """Chat completions API interface."""
+    """Chat completions API interface for the HelpingAI client.
+
+    Use this to create chat completions, including streaming and function/tool calling.
+    """
     def __init__(self, client: "HAI") -> None:
-        self._client = client
+        self._client: "HAI" = client
+
+    def _filter_think_ser_blocks(self, text: Optional[str]) -> Optional[str]:
+        """Remove <think>...</think> and <ser>...</ser> blocks from text."""
+        if not text:
+            return text
+        import re
+        text = re.sub(r"<think>[\s\S]*?</think>", "", text)
+        text = re.sub(r"<ser>[\s\S]*?</ser>", "", text)
+        return text
+
+    def _filter_completion(self, completion: ChatCompletion) -> ChatCompletion:
+        """Return a ChatCompletion with <think> and <ser> blocks removed from message content."""
+        filtered_choices = []
+        for choice in completion.choices:
+            message = choice.message
+            filtered_content = self._filter_think_ser_blocks(message.content)
+            filtered_message = ChatCompletionMessage(
+                role=message.role,
+                content=filtered_content,
+                function_call=message.function_call,
+                tool_calls=message.tool_calls
+            )
+            filtered_choice = Choice(
+                index=choice.index,
+                message=filtered_message,
+                finish_reason=choice.finish_reason,
+                logprobs=choice.logprobs
+            )
+            filtered_choices.append(filtered_choice)
+        return ChatCompletion(
+            id=completion.id,
+            created=completion.created,
+            model=completion.model,
+            choices=filtered_choices,
+            system_fingerprint=completion.system_fingerprint,
+            usage=completion.usage
+        )
+
+    def _filter_stream_chunk(self, chunk: ChatCompletionChunk) -> ChatCompletionChunk:
+        """Return a ChatCompletionChunk with <think> and <ser> blocks removed from delta content."""
+        filtered_choices = []
+        for choice in chunk.choices:
+            delta = choice.delta
+            filtered_content = self._filter_think_ser_blocks(delta.content)
+            filtered_delta = ChoiceDelta(
+                content=filtered_content,
+                function_call=delta.function_call,
+                role=delta.role,
+                tool_calls=delta.tool_calls
+            )
+            filtered_choice = Choice(
+                index=choice.index,
+                delta=filtered_delta,
+                finish_reason=choice.finish_reason,
+                logprobs=choice.logprobs
+            )
+            filtered_choices.append(filtered_choice)
+        return ChatCompletionChunk(
+            id=chunk.id,
+            created=chunk.created,
+            model=chunk.model,
+            choices=filtered_choices,
+            system_fingerprint=chunk.system_fingerprint
+        )
 
     def create(
         self,
@@ -152,8 +237,34 @@ class ChatCompletions:
         seed: Optional[int] = None,
         tools: Optional[List[Dict[str, Any]]] = None,
         tool_choice: Optional[Union[str, Dict[str, Any]]] = "auto",
+        hide_think: bool = False,
     ) -> Union[ChatCompletion, Iterator[ChatCompletionChunk]]:
-        """Create a chat completion."""
+        """Create a chat completion.
+
+        Args:
+            model: Model ID to use.
+            messages: List of message dicts (role/content pairs).
+            temperature: Sampling temperature.
+            max_tokens: Maximum tokens to generate.
+            top_p: Nucleus sampling parameter.
+            frequency_penalty: Penalize frequent tokens.
+            presence_penalty: Penalize repeated topics.
+            stop: Stop sequence(s).
+            stream: Whether to stream the response.
+            user: User identifier.
+            n: Number of completions.
+            logprobs: Include logprobs in response.
+            top_logprobs: Number of top logprobs to return.
+            response_format: Response format options.
+            seed: Random seed for deterministic results.
+            tools: Tool/function call definitions.
+            tool_choice: Tool selection strategy.
+            hide_think: If True, filter out <think> and <ser> blocks from the output (streaming or not).
+        Returns:
+            ChatCompletion or an iterator of ChatCompletionChunk (OpenAI-compatible objects).
+        Raises:
+            HAIError or its subclasses on error.
+        """
         json_data = {
             "model": model,
             "messages": messages,
@@ -186,11 +297,32 @@ class ChatCompletions:
         )
 
         if stream:
-            return self._handle_stream_response(cast(requests.Response, response))
-        return self._handle_response(cast(Dict[str, Any], response))
+            stream_iter = self._handle_stream_response(cast(requests.Response, response))
+            if hide_think:
+                return (self._filter_stream_chunk(chunk) for chunk in stream_iter)
+            return stream_iter
+        completion = self._handle_response(cast(Dict[str, Any], response))
+        if hide_think:
+            return self._filter_completion(completion)
+        return completion
+
+    def _hide_think_from_completion(self, completion: ChatCompletion) -> str:
+        # Deprecated: no longer used, kept for backward compatibility if needed
+        def remove_blocks(text: Optional[str]) -> str:
+            if not text:
+                return ""
+            import re
+            text = re.sub(r"<think>[\s\S]*?</think>", "", text)
+            text = re.sub(r"<ser>[\s\S]*?</ser>", "", text)
+            return text
+        visible = []
+        for choice in completion.choices:
+            if choice.message and choice.message.content:
+                visible.append(remove_blocks(choice.message.content))
+        return "\n".join(visible)
 
     def _handle_response(self, data: Dict[str, Any]) -> ChatCompletion:
-        """Process a non-streaming response."""
+        """Process a non-streaming response into a ChatCompletion object."""
         choices = []
         for choice_data in data.get("choices", []):
             message_data = choice_data.get("message", {})
@@ -248,7 +380,7 @@ class ChatCompletions:
         )
 
     def _handle_stream_response(self, response: requests.Response) -> Iterator[ChatCompletionChunk]:
-        """Handle streaming response."""
+        """Handle streaming response and yield ChatCompletionChunk objects."""
         for line in response.iter_lines():
             if line:
                 if line.strip() == b"data: [DONE]":
@@ -307,22 +439,63 @@ class ChatCompletions:
                 except Exception as e:
                     raise HAIError(f"Error parsing stream: {str(e)}")
 
+    def _filtered_stream_response(self, stream_iter: Iterator[ChatCompletionChunk]) -> Iterator[ChatCompletionChunk]:
+        """Yield ChatCompletionChunk objects with <think> and <ser> blocks removed from content fields."""
+        import re
+        def remove_blocks(text: Optional[str]) -> Optional[str]:
+            if not text:
+                return text
+            text = re.sub(r"<think>[\s\S]*?</think>", "", text)
+            text = re.sub(r"<ser>[\s\S]*?</ser>", "", text)
+            return text
+        for chunk in stream_iter:
+            new_choices = []
+            for choice in chunk.choices:
+                new_delta = None
+                if choice.delta:
+                    new_delta = ChoiceDelta(
+                        content=remove_blocks(choice.delta.content),
+                        function_call=choice.delta.function_call,
+                        role=choice.delta.role,
+                        tool_calls=choice.delta.tool_calls
+                    )
+                new_choice = Choice(
+                    index=choice.index,
+                    delta=new_delta,
+                    finish_reason=choice.finish_reason,
+                    logprobs=choice.logprobs
+                )
+                new_choices.append(new_choice)
+            yield ChatCompletionChunk(
+                id=chunk.id,
+                created=chunk.created,
+                model=chunk.model,
+                choices=new_choices,
+                system_fingerprint=chunk.system_fingerprint
+            )
+
 class Chat:
-    """Chat API interface."""
+    """Chat API interface for the HelpingAI client.
+
+    Access chat completions via the `completions` property.
+    """
     def __init__(self, client: "HAI") -> None:
-        self.completions = ChatCompletions(client)
+        self.completions: ChatCompletions = ChatCompletions(client)
 
 class HAI(BaseClient):
-    """HAI API client."""
+    """HAI API client for the HelpingAI platform.
+
+    This is the main entry point for interacting with the HelpingAI API.
+    """
     def __init__(
-        self, 
+        self,
         api_key: Optional[str] = None,
         organization: Optional[str] = None,
         base_url: Optional[str] = None,
         timeout: float = 60.0,
     ) -> None:
         """Initialize HAI client.
-        
+
         Args:
             api_key: Your API key. Find it at https://helpingai.co/dashboard
             organization: Optional organization ID for API requests
@@ -330,5 +503,5 @@ class HAI(BaseClient):
             timeout: Timeout for API requests in seconds
         """
         super().__init__(api_key, organization, base_url, timeout)
-        self.chat = Chat(self)
-        self.models = Models(self)
+        self.chat: Chat = Chat(self)
+        self.models: Models = Models(self)

@@ -1,6 +1,8 @@
 """Exceptions for HAI API client."""
 
-from typing import Dict, Optional, Any
+from typing import Dict, Optional, Any, TypeVar
+
+T = TypeVar("T", bound=Dict[str, Any])
 
 class HAIError(Exception):
     """Base exception for HAI API errors."""
@@ -12,10 +14,10 @@ class HAIError(Exception):
         body: Optional[Dict[str, Any]] = None
     ) -> None:
         super().__init__(message)
-        self.message = message
-        self.status_code = status_code
-        self.headers = headers or {}
-        self.body = body or {}
+        self.message: str = message
+        self.status_code: Optional[int] = status_code
+        self.headers: Dict[str, Any] = headers or {}
+        self.body: Dict[str, Any] = body or {}
 
     def __str__(self) -> str:
         status = f" (HTTP {self.status_code})" if self.status_code else ""
@@ -39,7 +41,7 @@ class NoAPIKeyError(AuthenticationError):
 
 class InvalidAPIKeyError(AuthenticationError):
     """Raised when the API key is invalid."""
-    def __init__(self, status_code: Optional[int] = None, headers: Optional[Dict] = None) -> None:
+    def __init__(self, status_code: Optional[int] = None, headers: Optional[Dict[str, Any]] = None) -> None:
         super().__init__(
             "Invalid API key. Check your API key at https://helpingai.co/dashboard",
             status_code,
@@ -58,11 +60,11 @@ class InvalidRequestError(HAIError):
         param: Optional[str] = None,
         code: Optional[str] = None,
         status_code: Optional[int] = None,
-        headers: Optional[Dict] = None
+        headers: Optional[Dict[str, Any]] = None
     ) -> None:
         super().__init__(message, status_code, headers)
-        self.param = param
-        self.code = code
+        self.param: Optional[str] = param
+        self.code: Optional[str] = code
 
     def __str__(self) -> str:
         msg = super().__str__()
@@ -78,7 +80,7 @@ class InvalidModelError(InvalidRequestError):
         self,
         model: str,
         status_code: Optional[int] = None,
-        headers: Optional[Dict] = None
+        headers: Optional[Dict[str, Any]] = None
     ) -> None:
         super().__init__(
             f"Model '{model}' not found. Available models can be found at "
@@ -94,11 +96,11 @@ class RateLimitError(HAIError):
         self,
         message: str,
         status_code: Optional[int] = None,
-        headers: Optional[Dict] = None,
+        headers: Optional[Dict[str, Any]] = None,
         retry_after: Optional[int] = None
     ) -> None:
         super().__init__(message, status_code, headers)
-        self.retry_after = retry_after or self._get_retry_after_from_headers()
+        self.retry_after: Optional[int] = retry_after or self._get_retry_after_from_headers()
 
     def _get_retry_after_from_headers(self) -> Optional[int]:
         """Extract retry-after value from headers."""
@@ -120,7 +122,7 @@ class TooManyRequestsError(RateLimitError):
     def __init__(
         self,
         status_code: Optional[int] = None,
-        headers: Optional[Dict] = None
+        headers: Optional[Dict[str, Any]] = None
     ) -> None:
         super().__init__(
             "Rate limit exceeded. Please try again later.",
@@ -133,7 +135,7 @@ class ServiceUnavailableError(HAIError):
     def __init__(
         self,
         status_code: Optional[int] = None,
-        headers: Optional[Dict] = None
+        headers: Optional[Dict[str, Any]] = None
     ) -> None:
         super().__init__(
             "HelpingAI API is temporarily unavailable. Please try again later.",
@@ -153,10 +155,10 @@ class APIConnectionError(HAIError):
         message: str,
         should_retry: bool = False,
         status_code: Optional[int] = None,
-        headers: Optional[Dict] = None
+        headers: Optional[Dict[str, Any]] = None
     ) -> None:
         super().__init__(message, status_code, headers)
-        self.should_retry = should_retry
+        self.should_retry: bool = should_retry
 
 class APIError(HAIError):
     """Generic API error."""
@@ -166,11 +168,11 @@ class APIError(HAIError):
         code: Optional[str] = None,
         type: Optional[str] = None,
         status_code: Optional[int] = None,
-        headers: Optional[Dict] = None,
+        headers: Optional[Dict[str, Any]] = None,
     ) -> None:
         super().__init__(message, status_code, headers)
-        self.code = code
-        self.type = type
+        self.code: Optional[str] = code
+        self.type: Optional[str] = type
 
     def __str__(self) -> str:
         msg = super().__str__()
@@ -186,7 +188,7 @@ class ServerError(APIError):
         self,
         message: str = "Internal server error",
         status_code: Optional[int] = None,
-        headers: Optional[Dict] = None
+        headers: Optional[Dict[str, Any]] = None
     ) -> None:
         super().__init__(
             message,
@@ -201,7 +203,7 @@ class ContentFilterError(InvalidRequestError):
         self,
         message: str = "Content violates content policy",
         status_code: Optional[int] = None,
-        headers: Optional[Dict] = None
+        headers: Optional[Dict[str, Any]] = None
     ) -> None:
         super().__init__(
             message,
@@ -216,7 +218,7 @@ class TokenLimitError(InvalidRequestError):
         self,
         message: str = "Token limit exceeded",
         status_code: Optional[int] = None,
-        headers: Optional[Dict] = None
+        headers: Optional[Dict[str, Any]] = None
     ) -> None:
         super().__init__(
             message,
@@ -232,7 +234,7 @@ class InvalidContentError(InvalidRequestError):
         message: str,
         param: Optional[str] = None,
         status_code: Optional[int] = None,
-        headers: Optional[Dict] = None
+        headers: Optional[Dict[str, Any]] = None
     ) -> None:
         super().__init__(
             message,

@@ -1,7 +1,7 @@
 """Base models for HAI API."""
 
 from dataclasses import dataclass, asdict, is_dataclass
-from typing import Optional, Dict, Any, List, Union
+from typing import Optional, Dict, Any, List, Iterator
 from enum import Enum
 
 class ToolCallType(str, Enum):
@@ -25,7 +25,7 @@ class BaseModel:
             return obj
         return _convert(self)
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[Any]:
         """Make models iterable for dict-like access."""
         for key, value in self.to_dict().items():
             yield key, value

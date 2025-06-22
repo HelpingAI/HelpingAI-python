@@ -1,8 +1,11 @@
 """HAI Models API client."""
 from dataclasses import dataclass
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, TYPE_CHECKING
 
 from .base_models import BaseModel
+
+if TYPE_CHECKING:
+    from .client import HAI
 
 @dataclass
 class Model(BaseModel):
@@ -60,7 +63,7 @@ class Models:
         """Retrieve a specific model.
 
         Args:
-            model_id: The ID of the model to retrieve.
+            model_id (str): The ID of the model to retrieve.
 
         Returns:
             Model: The requested model.
