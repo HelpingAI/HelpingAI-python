@@ -1,6 +1,15 @@
 from setuptools import setup, find_packages
+import os
 
-from HelpingAI.version import VERSION
+
+def get_version():
+    """Get version from version.py without importing the package."""
+    version_file = os.path.join(os.path.dirname(__file__), "HelpingAI", "version.py")
+    with open(version_file, "r", encoding="utf-8") as f:
+        for line in f:
+            if line.startswith("VERSION"):
+                return line.split("=")[1].strip().strip('"').strip("'")
+    raise RuntimeError("Unable to find version string.")
 
 
 # Read README for long description
@@ -9,7 +18,7 @@ with open("README.md", "r", encoding="utf-8") as f:
 
 setup(
     name="HelpingAI",
-    version=VERSION,  # noqa: F821
+    version=get_version(),
     description="Python client library for the HelpingAI API",
     long_description=long_description,
     long_description_content_type="text/markdown",
