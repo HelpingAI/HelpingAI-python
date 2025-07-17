@@ -99,6 +99,17 @@ class ChatCompletionMessage(BaseModel):
 
 @dataclass
 class Choice(BaseModel):
+    def __getitem__(self, key):
+        return getattr(self, key)
+
+    def __contains__(self, key):
+        return hasattr(self, key)
+
+    def get(self, key, default=None):
+        return getattr(self, key, default)
+
+    def items(self):
+        return self.to_dict().items()
     """Choice in completion response."""
     index: int
     message: Optional[ChatCompletionMessage] = None
@@ -108,6 +119,17 @@ class Choice(BaseModel):
 
 @dataclass
 class ChatCompletion(BaseModel):
+    def __getitem__(self, key):
+        return getattr(self, key)
+
+    def __contains__(self, key):
+        return hasattr(self, key)
+
+    def get(self, key, default=None):
+        return getattr(self, key, default)
+
+    def items(self):
+        return self.to_dict().items()
     """Chat completion response."""
     id: str
     created: int
@@ -119,6 +141,17 @@ class ChatCompletion(BaseModel):
 
 @dataclass
 class ChatCompletionChunk(BaseModel):
+    def __getitem__(self, key):
+        return getattr(self, key)
+
+    def __contains__(self, key):
+        return hasattr(self, key)
+
+    def get(self, key, default=None):
+        return getattr(self, key, default)
+
+    def items(self):
+        return self.to_dict().items()
     """Streaming chat completion response chunk."""
     id: str
     created: int
