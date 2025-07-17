@@ -25,6 +25,17 @@ from .error import *
 from .base_models import *
 from .models import *
 
+# New tool utilities
+try:
+    from .tools import (
+        Fn, tools, get_tools, get_tools_format,
+        ToolRegistry, ToolExecutionError, SchemaValidationError,
+        ToolRegistrationError, SchemaGenerationError
+    )
+    _TOOLS_AVAILABLE = True
+except ImportError:
+    _TOOLS_AVAILABLE = False
+
 
 __version__ = VERSION
 __all__ = [
@@ -55,3 +66,18 @@ __all__ = [
     "json_dumps",
     "ToolCallType",
 ]
+
+# Add tool utilities to __all__ if available
+if _TOOLS_AVAILABLE:
+    __all__.extend([
+        # New tool utilities
+        "Fn",
+        "tools",
+        "get_tools",
+        "get_tools_format",
+        "ToolRegistry",
+        "ToolExecutionError",
+        "SchemaValidationError",
+        "ToolRegistrationError",
+        "SchemaGenerationError",
+    ])

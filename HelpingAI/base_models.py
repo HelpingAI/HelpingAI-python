@@ -116,9 +116,57 @@ class FunctionCall(BaseModel):
 
 @dataclass
 class ToolFunction(BaseModel):
-    """Function specification in a tool."""
+    """Enhanced function specification in a tool."""
     name: str
     arguments: str
+    
+    def get_parsed_arguments(self) -> Dict[str, Any]:
+        """Parse JSON arguments to dictionary.
+        
+        Returns:
+            Parsed arguments as dictionary
+            
+        Raises:
+            json.JSONDecodeError: If arguments are not valid JSON
+        """
+        try:
+            return json.loads(self.arguments)
+        except json.JSONDecodeError as e:
+            raise ValueError(f"Invalid JSON in tool arguments: {e}")
+    
+    def call_with_registry(self, registry=None) -> Any:
+        """Execute function using registry lookup.
+        
+        Args:
+            registry: Tool registry to use (uses global if None)
+            
+        Returns:
+            Function execution result
+            
+        Raises:
+            Exception: If tool not found or execution fails
+        """
+        try:
+            # Try to import and use the tools registry
+            if registry is None:
+                from .tools import get_registry
+                registry = get_registry()
+            
+            tool = registry.get_tool(self.name)
+            if tool is None:
+                raise Exception(f"Tool '{self.name}' not found in registry")
+            
+            return tool.call(self.arguments)
+            
+        except ImportError:
+            # Tools module not available - raise informative error
+            raise Exception(f"Tool execution requires HelpingAI tools module. Tool: {self.name}")
+        except Exception as e:
+            raise Exception(f"Error executing tool '{self.name}': {e}")
+    
+    def execute(self, registry=None) -> Any:
+        """Alias for call_with_registry for convenience."""
+        return self.call_with_registry(registry)
 
 @dataclass
 class ToolCall(BaseModel):

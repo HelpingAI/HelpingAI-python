@@ -399,7 +399,7 @@ class ChatCompletions:
         top_logprobs: Optional[int] = None,
         response_format: Optional[Dict[str, str]] = None,
         seed: Optional[int] = None,
-        tools: Optional[List[Dict[str, Any]]] = None,
+        tools: Optional[Union[List[Dict[str, Any]], List, str]] = None,
         tool_choice: Optional[Union[str, Dict[str, Any]]] = "auto",
         hide_think: bool = False,
     ) -> Union[ChatCompletion, Iterator[ChatCompletionChunk]]:
@@ -421,7 +421,10 @@ class ChatCompletions:
             top_logprobs: Number of top logprobs to return.
             response_format: Response format options.
             seed: Random seed for deterministic results.
-            tools: Tool/function call definitions.
+            tools: Tool/function call definitions. Supports multiple formats:
+                - List[Dict]: OpenAI tool format (existing)
+                - List[Fn]: Fn objects from @tools decorator
+                - str: Category name to get tools from registry
             tool_choice: Tool selection strategy.
             hide_think: If True, filter out <think> and <ser> blocks from the output (streaming or not).
         Returns:
@@ -431,6 +434,9 @@ class ChatCompletions:
         """
         # Convert messages to dictionaries automatically
         converted_messages = self._convert_messages_to_dicts(messages)
+        
+        # Convert tools to OpenAI format
+        converted_tools = self._convert_tools_parameter(tools)
         
         json_data = {
             "model": model,
@@ -451,8 +457,8 @@ class ChatCompletions:
             "top_logprobs": top_logprobs,
             "response_format": response_format,
             "seed": seed,
-            "tools": tools,
-            "tool_choice": tool_choice if tools else None,
+            "tools": converted_tools,
+            "tool_choice": tool_choice if converted_tools else None,
         }
         json_data.update({k: v for k, v in optional_params.items() if v is not None})
 
@@ -487,6 +493,125 @@ class ChatCompletions:
             if choice.message and choice.message.content:
                 visible.append(remove_blocks(choice.message.content))
         return "\n".join(visible)
+
+    def _convert_tools_parameter(
+        self,
+        tools: Optional[Union[List[Dict[str, Any]], List, str]]
+    ) -> Optional[List[Dict[str, Any]]]:
+        """Convert various tools formats to OpenAI format.
+        
+        Args:
+            tools: Tools in various formats
+            
+        Returns:
+            List of OpenAI-compatible tool definitions or None
+        """
+        if tools is None:
+            return None
+        
+        try:
+            from .tools.compatibility import ensure_openai_format
+            return ensure_openai_format(tools)
+        except ImportError:
+            # Fallback if tools module not available - treat as legacy format
+            if isinstance(tools, list):
+                return tools
+            return None
+        except Exception as e:
+            # Log warning but don't break existing functionality
+            import warnings
+            warnings.warn(f"Tool conversion failed: {e}. Using legacy behavior.")
+            if isinstance(tools, list):
+                return tools
+            return None
+
+    def execute_tool_calls(
+        self,
+        message: ChatCompletionMessage,
+        registry=None
+    ) -> List[Dict[str, Any]]:
+        """Execute all tool calls in a message and return results.
+        
+        Args:
+            message: Message containing tool calls
+            registry: Tool registry to use (uses global if None)
+            
+        Returns:
+            List of tool execution results with format:
+            [{"tool_call_id": str, "result": Any, "error": str}]
+        """
+        if not message.tool_calls:
+            return []
+
+        results = []
+        for tool_call in message.tool_calls:
+            try:
+                # Try to execute using enhanced ToolFunction if available
+                if hasattr(tool_call.function, 'call_with_registry'):
+                    result = tool_call.function.call_with_registry(registry)
+                else:
+                    # Fallback to basic execution (would need manual implementation)
+                    result = {"error": "Tool execution not implemented for this tool"}
+                
+                results.append({
+                    "tool_call_id": tool_call.id,
+                    "result": result,
+                    "error": None
+                })
+            except Exception as e:
+                results.append({
+                    "tool_call_id": tool_call.id,
+                    "result": None,
+                    "error": str(e)
+                })
+        
+        return results
+
+    def create_tool_response_message(
+        self,
+        tool_call_id: str,
+        content: str
+    ) -> Dict[str, Any]:
+        """Create a tool response message for conversation history.
+        
+        Args:
+            tool_call_id: ID of the tool call being responded to
+            content: Tool execution result as string
+            
+        Returns:
+            Message dict in OpenAI format
+        """
+        return {
+            "role": "tool",
+            "tool_call_id": tool_call_id,
+            "content": content
+        }
+
+    def create_tool_response_messages(
+        self,
+        execution_results: List[Dict[str, Any]]
+    ) -> List[Dict[str, Any]]:
+        """Create tool response messages from execution results.
+        
+        Args:
+            execution_results: Results from execute_tool_calls
+            
+        Returns:
+            List of tool response messages
+        """
+        import json
+        messages = []
+        for result in execution_results:
+            if result["error"] is None:
+                content = json.dumps(result["result"]) if result["result"] is not None else "null"
+            else:
+                content = f"Error: {result['error']}"
+            
+            messages.append(self.create_tool_response_message(
+                result["tool_call_id"],
+                content
+            ))
+        return messages
 
     def _handle_response(self, data: Dict[str, Any]) -> ChatCompletion:
         """Process a non-streaming response into a ChatCompletion object."""
