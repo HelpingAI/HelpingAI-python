@@ -309,10 +309,83 @@ class ChatCompletions:
         # Return None if result is empty or whitespace-only to avoid sending empty chunks
         return result.strip() if result.strip() else None
 
+    def _convert_messages_to_dicts(self, messages: List[Union[Dict[str, Any], BaseModel]]) -> List[Dict[str, Any]]:
+        """Convert messages to dictionaries, handling BaseModel objects automatically."""
+        converted_messages = []
+        for message in messages:
+            if hasattr(message, 'to_dict'):
+                # Convert BaseModel objects to dict
+                msg_dict = message.to_dict()
+            elif isinstance(message, dict):
+                # Already a dict, but ensure tool_calls are converted if they're BaseModel objects
+                msg_dict = message.copy()
+                if 'tool_calls' in msg_dict and msg_dict['tool_calls']:
+                    converted_tool_calls = []
+                    for tool_call in msg_dict['tool_calls']:
+                        if hasattr(tool_call, 'to_dict'):
+                            converted_tool_calls.append(tool_call.to_dict())
+                        else:
+                            converted_tool_calls.append(tool_call)
+                    msg_dict['tool_calls'] = converted_tool_calls
+            else:
+                # Fallback: try to convert to dict
+                try:
+                    msg_dict = dict(message)
+                except (TypeError, ValueError):
+                    raise ValueError(f"Message must be a dict or BaseModel object, got {type(message)}")
+            
+            converted_messages.append(msg_dict)
+        return converted_messages
+
+    def create_assistant_message(
+        self,
+        content: Optional[str] = None,
+        tool_calls: Optional[List[Union[ToolCall, Dict[str, Any]]]] = None,
+        function_call: Optional[Union[FunctionCall, Dict[str, Any]]] = None
+    ) -> ChatCompletionMessage:
+        """Create an assistant message with automatic tool call conversion.
+        
+        This helper method makes it easy to create assistant messages that are
+        fully compatible with OpenAI's format, automatically converting ToolCall
+        objects to the proper dictionary format when needed.
+        
+        Args:
+            content: The message content
+            tool_calls: List of tool calls (ToolCall objects or dicts)
+            function_call: Function call (FunctionCall object or dict)
+            
+        Returns:
+            ChatCompletionMessage object that can be used in conversation history
+        """
+        # Convert tool calls to proper format
+        converted_tool_calls = None
+        if tool_calls:
+            converted_tool_calls = []
+            for tool_call in tool_calls:
+                if hasattr(tool_call, 'to_dict'):
+                    converted_tool_calls.append(tool_call.to_dict())
+                else:
+                    converted_tool_calls.append(tool_call)
+        
+        # Convert function call to proper format
+        converted_function_call = None
+        if function_call:
+            if hasattr(function_call, 'to_dict'):
+                converted_function_call = function_call.to_dict()
+            else:
+                converted_function_call = function_call
+        
+        return ChatCompletionMessage(
+            role="assistant",
+            content=content,
+            tool_calls=converted_tool_calls,
+            function_call=converted_function_call
+        )
+
     def create(
         self,
         model: str,
-        messages: List[Dict[str, str]],
+        messages: List[Union[Dict[str, Any], BaseModel]],
         temperature: Optional[float] = None,
         max_tokens: Optional[int] = None,
         top_p: Optional[float] = None,
@@ -356,9 +429,12 @@ class ChatCompletions:
         Raises:
             HAIError or its subclasses on error.
         """
+        # Convert messages to dictionaries automatically
+        converted_messages = self._convert_messages_to_dicts(messages)
+        
         json_data = {
             "model": model,
-            "messages": messages,
+            "messages": converted_messages,
             "stream": stream
         }
         

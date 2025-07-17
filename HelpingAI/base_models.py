@@ -1,8 +1,23 @@
 """Base models for HAI API."""
 
+import json
 from dataclasses import dataclass, asdict, is_dataclass
-from typing import Optional, Dict, Any, List, Iterator
+from typing import Optional, Dict, Any, List, Iterator, Union
 from enum import Enum
+
+class HAIJSONEncoder(json.JSONEncoder):
+    """Custom JSON encoder that handles BaseModel objects automatically."""
+    
+    def default(self, obj):
+        if isinstance(obj, BaseModel):
+            return obj.to_dict()
+        elif isinstance(obj, Enum):
+            return obj.value
+        return super().default(obj)
+
+def json_dumps(obj, **kwargs):
+    """JSON dumps with automatic BaseModel handling."""
+    return json.dumps(obj, cls=HAIJSONEncoder, **kwargs)
 
 class ToolCallType(str, Enum):
     """Type of tool call."""
@@ -30,6 +45,69 @@ class BaseModel:
         for key, value in self.to_dict().items():
             yield key, value
 
+    def __getitem__(self, key: str) -> Any:
+        """Enable dictionary-style access."""
+        try:
+            return getattr(self, key)
+        except AttributeError:
+            raise KeyError(key)
+
+    def __contains__(self, key: str) -> bool:
+        """Check if key exists in model."""
+        return hasattr(self, key)
+
+    def get(self, key: str, default: Any = None) -> Any:
+        """Get attribute with default fallback."""
+        return getattr(self, key, default)
+
+    def items(self) -> Iterator[tuple[str, Any]]:
+        """Return items like a dictionary."""
+        return self.to_dict().items()
+
+    def keys(self) -> Iterator[str]:
+        """Return keys like a dictionary."""
+        return self.to_dict().keys()
+
+    def values(self) -> Iterator[Any]:
+        """Return values like a dictionary."""
+        return self.to_dict().values()
+
+    def json(self, **kwargs) -> str:
+        """Convert to JSON string."""
+        return json_dumps(self.to_dict(), **kwargs)
+
+    def model_dump(self, **kwargs) -> Dict[str, Any]:
+        """Pydantic-style model dump for compatibility."""
+        return self.to_dict()
+
+    def model_dump_json(self, **kwargs) -> str:
+        """Pydantic-style JSON dump for compatibility."""
+        return self.json(**kwargs)
+
+    @classmethod
+    def model_validate(cls, data: Union[Dict[str, Any], 'BaseModel']) -> 'BaseModel':
+        """Pydantic-style validation for compatibility."""
+        if isinstance(data, cls):
+            return data
+        elif isinstance(data, dict):
+            return cls(**data)
+        else:
+            raise ValueError(f"Cannot validate {type(data)} as {cls.__name__}")
+
+    def __json__(self):
+        """JSON serialization hook for automatic conversion."""
+        return self.to_dict()
+
+    def __str__(self) -> str:
+        """String representation showing the model as JSON."""
+        return self.json()
+
+    def __repr__(self) -> str:
+        """Detailed representation of the model."""
+        class_name = self.__class__.__name__
+        fields = ', '.join(f'{k}={repr(v)}' for k, v in self.to_dict().items())
+        return f'{class_name}({fields})'
+
 @dataclass
 class FunctionCall(BaseModel):
     """Function call specification."""
@@ -42,36 +120,12 @@ class ToolFunction(BaseModel):
     name: str
     arguments: str
 
-    def __getitem__(self, key):
-        return getattr(self, key)
-
-    def __contains__(self, key):
-        return hasattr(self, key)
-
-    def get(self, key, default=None):
-        return getattr(self, key, default)
-
-    def items(self):
-        return self.to_dict().items()
-
 @dataclass
 class ToolCall(BaseModel):
     """Tool call specification."""
     id: str
     type: str
     function: ToolFunction
-
-    def __getitem__(self, key):
-        return getattr(self, key)
-
-    def __contains__(self, key):
-        return hasattr(self, key)
-
-    def get(self, key, default=None):
-        return getattr(self, key, default)
-
-    def items(self):
-        return self.to_dict().items()
 
 @dataclass
 class CompletionUsage(BaseModel):
@@ -91,17 +145,6 @@ class ChoiceDelta(BaseModel):
 
 @dataclass
 class ChatCompletionMessage(BaseModel):
-    def __getitem__(self, key):
-        return getattr(self, key)
-
-    def __contains__(self, key):
-        return hasattr(self, key)
-
-    def get(self, key, default=None):
-        return getattr(self, key, default)
-
-    def items(self):
-        return self.to_dict().items()
     """Chat message in completion response."""
     role: str
     content: Optional[str] = None
@@ -110,17 +153,6 @@ class ChatCompletionMessage(BaseModel):
 
 @dataclass
 class Choice(BaseModel):
-    def __getitem__(self, key):
-        return getattr(self, key)
-
-    def __contains__(self, key):
-        return hasattr(self, key)
-
-    def get(self, key, default=None):
-        return getattr(self, key, default)
-
-    def items(self):
-        return self.to_dict().items()
     """Choice in completion response."""
     index: int
     message: Optional[ChatCompletionMessage] = None
@@ -130,17 +162,6 @@ class Choice(BaseModel):
 
 @dataclass
 class ChatCompletion(BaseModel):
-    def __getitem__(self, key):
-        return getattr(self, key)
-
-    def __contains__(self, key):
-        return hasattr(self, key)
-
-    def get(self, key, default=None):
-        return getattr(self, key, default)
-
-    def items(self):
-        return self.to_dict().items()
     """Chat completion response."""
     id: str
     created: int
@@ -152,17 +173,6 @@ class ChatCompletion(BaseModel):
 
 @dataclass
 class ChatCompletionChunk(BaseModel):
-    def __getitem__(self, key):
-        return getattr(self, key)
-
-    def __contains__(self, key):
-        return hasattr(self, key)
-
-    def get(self, key, default=None):
-        return getattr(self, key, default)
-
-    def items(self):
-        return self.to_dict().items()
     """Streaming chat completion response chunk."""
     id: str
     created: int

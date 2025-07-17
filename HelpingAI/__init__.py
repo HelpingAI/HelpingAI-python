@@ -50,4 +50,8 @@ __all__ = [
     "FunctionCall",
     "Model",
     "Models",
+    # JSON utilities
+    "HAIJSONEncoder",
+    "json_dumps",
+    "ToolCallType",
 ]
