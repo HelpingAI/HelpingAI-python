@@ -10,6 +10,9 @@ The official Python library for the [HelpingAI](https://helpingai.co) API - Adva
 
 - **OpenAI-Compatible API**: Drop-in replacement with familiar interface
 - **Emotional Intelligence**: Advanced AI models with emotional understanding
+- **Tool Calling Made Easy**: [`@tools decorator`](HelpingAI/tools/core.py:144) for effortless function-to-tool conversion
+- **Automatic Schema Generation**: Type hint-based JSON schema creation with docstring parsing
+- **Universal Tool Compatibility**: Seamless integration with OpenAI-format tools
 - **Streaming Support**: Real-time response streaming
 - **Comprehensive Error Handling**: Detailed error types and retry mechanisms
 - **Type Safety**: Full type hints and IDE support
@@ -154,6 +157,238 @@ response = hai.chat.completions.create(
     hide_think=False  # Show reasoning process
 )
 ```
+## 🔧 Tool Calling with @tools Decorator
+
+Transform any Python function into a powerful AI tool with zero boilerplate using the [`@tools`](HelpingAI/tools/core.py:144) decorator.
+
+### Quick Start with Tools
+
+```python
+from HelpingAI import HAI
+from HelpingAI.tools import tools, get_tools_format
+
+@tools
+def get_weather(city: str, units: str = "celsius") -> str:
+    """Get current weather information for a city.
+    
+    Args:
+        city: The city name to get weather for
+        units: Temperature units (celsius or fahrenheit)
+    """
+    # Your weather API logic here
+    return f"Weather in {city}: 22°{units[0].upper()}"
+
+@tools
+def calculate_tip(bill_amount: float, tip_percentage: float = 15.0) -> dict:
+    """Calculate tip and total amount for a bill.
+    
+    Args:
+        bill_amount: The original bill amount
+        tip_percentage: Tip percentage (default: 15.0)
+    """
+    tip = bill_amount * (tip_percentage / 100)
+    total = bill_amount + tip
+    return {"tip": tip, "total": total, "original": bill_amount}
+
+# Use with chat completions
+hai = HAI()
+response = hai.chat.completions.create(
+    model="Helpingai3-raw",
+    messages=[{"role": "user", "content": "What's the weather in Paris and calculate tip for $50 bill?"}],
+    tools=get_tools_format()  # Automatically includes all @tools functions
+)
+
+print(response.choices[0].message.content)
+```
+
+### Advanced Tool Features
+
+#### Type System Support
+The [`@tools`](HelpingAI/tools/core.py:144) decorator automatically generates JSON schemas from Python type hints:
+
+```python
+from typing import List, Optional, Union
+from enum import Enum
+
+class Priority(Enum):
+    LOW = "low"
+    MEDIUM = "medium" 
+    HIGH = "high"
+
+@tools
+def create_task(
+    title: str,
+    description: Optional[str] = None,
+    priority: Priority = Priority.MEDIUM,
+    tags: List[str] = None,
+    due_date: Union[str, None] = None
+) -> dict:
+    """Create a new task with advanced type support.
+    
+    Args:
+        title: Task title
+        description: Optional task description
+        priority: Task priority level
+        tags: List of task tags
+        due_date: Due date in YYYY-MM-DD format
+    """
+    return {
+        "title": title,
+        "description": description,
+        "priority": priority.value,
+        "tags": tags or [],
+        "due_date": due_date
+    }
+```
+
+#### Tool Registry Management
+
+```python
+from HelpingAI.tools import get_tools, get_registry, clear_registry
+
+# Get specific tools
+weather_tools = get_tools(["get_weather", "calculate_tip"])
+
+# Registry inspection
+registry = get_registry()
+print(f"Registered tools: {registry.list_tool_names()}")
+print(f"Total tools: {registry.size()}")
+
+# Check if tool exists
+if registry.has_tool("get_weather"):
+    weather_tool = registry.get_tool("get_weather")
+    print(f"Tool: {weather_tool.name} - {weather_tool.description}")
+```
+
+#### Universal Tool Compatibility
+
+Seamlessly combine [`@tools`](HelpingAI/tools/core.py:144) functions with existing OpenAI-format tools:
+
+```python
+from HelpingAI.tools import merge_tool_lists, ensure_tool_format
+
+# Existing OpenAI-format tools
+legacy_tools = [{
+    "type": "function",
+    "function": {
+        "name": "search_web",
+        "description": "Search the web for information",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "query": {"type": "string", "description": "Search query"}
+            },
+            "required": ["query"]
+        }
+    }
+}]
+
+# Combine with @tools functions
+combined_tools = merge_tool_lists(
+    legacy_tools,           # Existing tools
+    get_tools_format(),     # @tools functions
+    "math"                  # Category name (if you have categorized tools)
+)
+
+# Use in chat completion
+response = hai.chat.completions.create(
+    model="Helpingai3-raw",
+    messages=[{"role": "user", "content": "Help me with weather, calculations, and web search"}],
+    tools=combined_tools
+)
+```
+
+### Error Handling & Best Practices
+
+```python
+from HelpingAI.tools import ToolExecutionError, SchemaValidationError, ToolRegistrationError
+
+@tools
+def divide_numbers(a: float, b: float) -> float:
+    """Divide two numbers safely.
+    
+    Args:
+        a: The dividend  
+        b: The divisor
+    """
+    if b == 0:
+        raise ValueError("Cannot divide by zero")
+    return a / b
+
+# Handle tool execution in your application
+def execute_tool_safely(tool_name: str, arguments: dict):
+    try:
+        tool = get_registry().get_tool(tool_name)
+        if not tool:
+            return {"error": f"Tool '{tool_name}' not found"}
+        
+        return tool.call(arguments)
+        
+    except ToolExecutionError as e:
+        print(f"Tool execution failed: {e}")
+        return {"error": str(e)}
+    except SchemaValidationError as e:
+        print(f"Invalid arguments: {e}")
+        return {"error": "Invalid parameters provided"}
+    except ToolRegistrationError as e:
+        print(f"Tool registration issue: {e}")
+        return {"error": "Tool configuration error"}
+
+# Example usage
+result = execute_tool_safely("divide_numbers", {"a": 10, "b": 2})
+print(result)  # 5.0
+
+error_result = execute_tool_safely("divide_numbers", {"a": 10, "b": 0})
+print(error_result)  # {"error": "Cannot divide by zero"}
+```
+
+### Migration from Legacy Tools
+
+Transform your existing tool definitions with minimal effort:
+
+**Before (Manual Schema):**
+```python
+tools = [{
+    "type": "function",
+    "function": {
+        "name": "get_weather", 
+        "description": "Get weather information",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "city": {"type": "string", "description": "City name"},
+                "units": {"type": "string", "description": "Temperature units", "enum": ["celsius", "fahrenheit"]}
+            },
+            "required": ["city"]
+        }
+    }
+}]
+```
+
+**After (@tools Decorator):**
+```python
+from typing import Literal
+
+@tools
+def get_weather(city: str, units: Literal["celsius", "fahrenheit"] = "celsius") -> str:
+    """Get weather information
+    
+    Args:
+        city: City name
+        units: Temperature units
+    """
+    # Implementation here
+    pass
+```
+
+The [`@tools`](HelpingAI/tools/core.py:144) decorator automatically:
+- ✅ Generates JSON schema from type hints
+- ✅ Extracts descriptions from docstrings  
+- ✅ Handles required/optional parameters
+- ✅ Supports multiple docstring formats (Google, Sphinx, NumPy)
+- ✅ Provides comprehensive error handling
+- ✅ Maintains thread-safe tool registry
+
 
 ## 📚 Documentation
 
@@ -174,7 +409,14 @@ HelpingAI-python/
 │   ├── models.py           # Model management
 │   ├── base_models.py      # Data models
 │   ├── error.py            # Exception classes
-│   └── version.py          # Version information
+│   ├── version.py          # Version information
+│   └── tools/              # Tool calling utilities
+│       ├── __init__.py     # Tools module exports
+│       ├── core.py         # @tools decorator and Fn class
+│       ├── schema.py       # Automatic schema generation
+│       ├── registry.py     # Tool registry management
+│       ├── compatibility.py # Format conversion utilities
+│       └── errors.py       # Tool-specific exceptions
 ├── docs/                   # Documentation
 ├── tests/                  # Test suite
 ├── setup.py               # Package configuration
@@ -211,6 +453,11 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 🚀 What's New in v1.1.0
 
+- **🔧 Tool Calling Framework**: New [`@tools decorator`](HelpingAI/tools/core.py:144) for effortless tool creation
+- **🤖 Automatic Schema Generation**: Type hint-based JSON schema creation with docstring parsing
+- **🔄 Universal Compatibility**: Seamless integration with existing OpenAI-format tools
+- **📝 Smart Documentation**: Multi-format docstring parsing (Google, Sphinx, NumPy styles)
+- **🛡️ Enhanced Tool Error Handling**: Comprehensive exception types for tool operations
 - **Extended Python Support**: Now supports Python 3.7-3.14
 - **Updated Models**: Support for latest models (Helpingai3-raw, Dhanishtha-2.0-preview)
 - **Dhanishtha-2.0 Integration**: World's first intermediate thinking model with multi-phase reasoning
