@@ -418,25 +418,27 @@ class ChatCompletions:
         for choice_data in data.get("choices", []):
             message_data = choice_data.get("message", {})
             tool_calls = None
-            if "tool_calls" in message_data:
-                tool_calls = [
-                    ToolCall(
-                        id=tc.get("id", ""),
-                        type=tc.get("type", "function"),
-                        function=ToolFunction(
-                            name=tc["function"]["name"],
-                            arguments=tc["function"]["arguments"]
-                        )
-                    )
-                    for tc in message_data["tool_calls"]
-                ]
+            if "tool_calls" in message_data and message_data["tool_calls"] is not None:
+                tool_calls = []
+                for tc in message_data["tool_calls"]:
+                    if tc is not None and "function" in tc and tc["function"] is not None:
+                        tool_calls.append(ToolCall(
+                            id=tc.get("id", ""),
+                            type=tc.get("type", "function"),
+                            function=ToolFunction(
+                                name=tc["function"].get("name", ""),
+                                arguments=tc["function"].get("arguments", "")
+                            )
+                        ))
 
             function_call = None
-            if "function_call" in message_data:
-                function_call = FunctionCall(
-                    name=message_data["function_call"]["name"],
-                    arguments=message_data["function_call"]["arguments"]
-                )
+            if "function_call" in message_data and message_data["function_call"] is not None:
+                fc = message_data["function_call"]
+                if fc is not None:
+                    function_call = FunctionCall(
+                        name=fc.get("name", ""),
+                        arguments=fc.get("arguments", "")
+                    )
 
             message = ChatCompletionMessage(
                 role=message_data.get("role", ""),
@@ -485,25 +487,27 @@ class ChatCompletions:
                             delta_data = choice_data.get("delta", {})
                             
                             tool_calls = None
-                            if "tool_calls" in delta_data:
-                                tool_calls = [
-                                    ToolCall(
-                                        id=tc.get("id", ""),
-                                        type=tc.get("type", "function"),
-                                        function=ToolFunction(
-                                            name=tc["function"]["name"],
-                                            arguments=tc["function"]["arguments"]
-                                        )
-                                    )
-                                    for tc in delta_data["tool_calls"]
-                                ]
+                            if "tool_calls" in delta_data and delta_data["tool_calls"] is not None:
+                                tool_calls = []
+                                for tc in delta_data["tool_calls"]:
+                                    if tc is not None and "function" in tc and tc["function"] is not None:
+                                        tool_calls.append(ToolCall(
+                                            id=tc.get("id", ""),
+                                            type=tc.get("type", "function"),
+                                            function=ToolFunction(
+                                                name=tc["function"].get("name", ""),
+                                                arguments=tc["function"].get("arguments", "")
+                                            )
+                                        ))
 
                             function_call = None
-                            if "function_call" in delta_data:
-                                function_call = FunctionCall(
-                                    name=delta_data["function_call"]["name"],
-                                    arguments=delta_data["function_call"]["arguments"]
-                                )
+                            if "function_call" in delta_data and delta_data["function_call"] is not None:
+                                fc = delta_data["function_call"]
+                                if fc is not None:
+                                    function_call = FunctionCall(
+                                        name=fc.get("name", ""),
+                                        arguments=fc.get("arguments", "")
+                                    )
 
                             delta = ChoiceDelta(
                                 content=delta_data.get("content"),
