@@ -3,6 +3,12 @@ HelpingAI Tools - Easy-to-use tool calling utilities.
 
 This module provides decorators and utilities for creating standard
 tool definitions from Python functions with minimal boilerplate.
+
+Key components:
+- @tools decorator: Transform Python functions into AI-callable tools
+- Fn class: Represent callable functions with metadata
+- get_tools(): Get registered tools (preferred over get_tools_format)
+- get_registry(): Access the tool registry for advanced management
 """
 
 from .core import Fn, tools, get_tools, get_tools_format, clear_registry, get_registry
@@ -23,7 +29,7 @@ from .compatibility import (
     get_compatibility_warnings
 )
 
-__version__ = "1.1.0"
+__version__ = "1.1.3"
 
 __all__ = [
     # Core classes and functions

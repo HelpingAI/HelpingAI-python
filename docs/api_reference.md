@@ -94,7 +94,7 @@ def create(
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| `model` | `str` | Model ID to use (e.g., "Helpingai3-raw", "Dhanishtha-2.0-preview") |
+| `model` | `str` | Model ID to use (e.g., "Dhanishtha-2.0-preview", "Dhanishtha-2.0-preview-mini") |
 | `messages` | `List[Dict[str, str]]` | List of message objects with "role" and "content" |
 
 **Optional Parameters:**
@@ -128,7 +128,7 @@ def create(
 ```python
 # Basic completion
 response = hai.chat.completions.create(
-    model="Helpingai3-raw",
+    model="Dhanishtha-2.0-preview",
     messages=[
         {"role": "user", "content": "Hello!"}
     ]
@@ -151,7 +151,7 @@ response = hai.chat.completions.create(
 
 # Streaming completion
 for chunk in hai.chat.completions.create(
-    model="Helpingai3-raw",
+    model="Dhanishtha-2.0-preview",
     messages=[{"role": "user", "content": "Tell me a story"}],
     stream=True
 ):
@@ -198,7 +198,7 @@ def retrieve(model_id: str) -> Model
 **Example:**
 
 ```python
-model = hai.models.retrieve("Helpingai3-raw")
+model = hai.models.retrieve("Dhanishtha-2.0-preview")
 print(f"Model: {model.name}")
 ```
 
@@ -461,7 +461,7 @@ import time
 def handle_completion_errors():
     try:
         response = hai.chat.completions.create(
-            model="Helpingai3-raw",
+            model="Dhanishtha-2.0-preview",
             messages=[{"role": "user", "content": "Hello"}]
         )
         return response
@@ -611,7 +611,7 @@ except Exception as e:
 def stream_completion(prompt: str):
     try:
         stream = hai.chat.completions.create(
-            model="Helpingai3-raw",
+            model="Dhanishtha-2.0-preview",
             messages=[{"role": "user", "content": prompt}],
             stream=True,
             hide_think=True

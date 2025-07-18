@@ -80,7 +80,7 @@ hai = HAI()
 
 # Create a simple chat completion
 response = hai.chat.completions.create(
-    model="Helpingai3-raw",
+    model="Dhanishtha-2.0-preview",
     messages=[
         {"role": "user", "content": "Hello! Can you help me understand emotional intelligence?"}
     ]
@@ -108,28 +108,29 @@ for model in models:
 
 We offer two powerful models:
 
-**Helpingai3-raw** - Advanced Emotional Intelligence:
-- Enhanced emotional understanding and contextual awareness
-- Trained on 15M emotional dialogues and 3M therapeutic exchanges
-- Best for emotional support, therapy guidance, and personalized learning
-
 **Dhanishtha-2.0-preview** - Revolutionary Reasoning Model:
 - World's first intermediate thinking model with multi-phase reasoning
 - Features transparent `<think>...</think>` blocks and self-correction
 - Best for complex problem-solving and analytical tasks
 
-```python
-# Use HelpingAI3 for emotional intelligence
-response = hai.chat.completions.create(
-    model="Helpingai3-raw",
-    messages=[{"role": "user", "content": "I'm feeling overwhelmed. Can you help?"}]
-)
+**Dhanishtha-2.0-preview-mini** - Lightweight Reasoning Model:
+- Efficient version of Dhanishtha-2.0-preview
+- Same reasoning capabilities in a more compact model
+- Best for faster responses and resource-constrained environments
 
-# Use Dhanishtha-2.0 for complex reasoning
+```python
+# Use Dhanishtha-2.0-preview for complex reasoning
 response = hai.chat.completions.create(
     model="Dhanishtha-2.0-preview",
     messages=[{"role": "user", "content": "Solve this logic puzzle step by step"}],
     hide_think=False  # Show the thinking process
+)
+
+# Use Dhanishtha-2.0-preview-mini for faster responses
+response = hai.chat.completions.create(
+    model="Dhanishtha-2.0-preview-mini",
+    messages=[{"role": "user", "content": "Summarize the key points of emotional intelligence"}],
+    hide_think=True  # Hide the thinking process for cleaner output
 )
 ```
 
@@ -139,7 +140,7 @@ response = hai.chat.completions.create(
 
 ```python
 response = hai.chat.completions.create(
-    model="Helpingai3-raw",
+    model="Dhanishtha-2.0-preview",
     messages=[
         {"role": "system", "content": "You are a helpful AI assistant with emotional intelligence."},
         {"role": "user", "content": "What are the key components of emotional intelligence?"}
@@ -162,7 +163,7 @@ conversation = [
 
 # First exchange
 response = hai.chat.completions.create(
-    model="Helpingai3-raw",
+    model="Dhanishtha-2.0-preview",
     messages=conversation
 )
 
@@ -180,7 +181,7 @@ conversation.append({
 
 # Get next response
 response = hai.chat.completions.create(
-    model="Helpingai3-raw",
+    model="Dhanishtha-2.0-preview",
     messages=conversation
 )
 ```
@@ -192,7 +193,7 @@ For real-time applications, use streaming to get responses as they're generated:
 ```python
 # Basic streaming
 response_stream = hai.chat.completions.create(
-    model="Helpingai3-raw",
+    model="Dhanishtha-2.0-preview",
     messages=[{"role": "user", "content": "Tell me a story about kindness"}],
     stream=True
 )
@@ -209,7 +210,7 @@ for chunk in response_stream:
 def stream_with_error_handling(messages):
     try:
         response_stream = hai.chat.completions.create(
-            model="Helpingai3-raw",
+            model="Dhanishtha-2.0-preview",
             messages=messages,
             stream=True
         )
@@ -288,7 +289,7 @@ def robust_completion(messages, max_retries=3):
     for attempt in range(max_retries):
         try:
             return hai.chat.completions.create(
-                model="Helpingai3-raw",
+                model="Dhanishtha-2.0-preview",
                 messages=messages
             )
             
@@ -356,7 +357,7 @@ def process_multiple_requests(message_list):
     responses = []
     for messages in message_list:
         response = hai.chat.completions.create(
-        model="Helpingai3-raw",
+        model="Dhanishtha-2.0-preview",
         messages=messages
         )
         responses.append(response.choices[0].message.content)
@@ -368,7 +369,7 @@ def inefficient_processing(message_list):
     for messages in message_list:
         hai = HAI()  # Don't do this!
         response = hai.chat.completions.create(
-            model="Helpingai3-raw",
+            model="Dhanishtha-2.0-preview",
             messages=messages
         )
         responses.append(response.choices[0].message.content)
@@ -381,7 +382,7 @@ Understanding the response structure:
 
 ```python
 response = hai.chat.completions.create(
-    model="Helpingai3-raw",
+    model="Dhanishtha-2.0-preview",
     messages=[{"role": "user", "content": "Hello!"}]
 )
 
@@ -447,6 +448,89 @@ Now that you're set up, explore more advanced features:
 - Implement exponential backoff for rate limit handling
 - Keep conversation history for context-aware responses
 - Monitor your API usage in the dashboard
+
+## 🔧 Tool Calling Framework
+
+HelpingAI provides a powerful tool calling framework that makes it easy to create AI-callable functions:
+
+```python
+from HelpingAI import HAI
+from HelpingAI.tools import tools, get_tools, get_registry
+
+# Define a tool using the @tools decorator
+@tools
+def calculate_mortgage(principal: float, interest_rate: float, years: int) -> dict:
+    """Calculate monthly mortgage payment and total cost.
+    
+    Args:
+        principal: Loan amount in dollars
+        interest_rate: Annual interest rate (percentage)
+        years: Loan term in years
+    """
+    monthly_rate = interest_rate / 100 / 12
+    num_payments = years * 12
+    
+    # Calculate monthly payment
+    if monthly_rate == 0:
+        monthly_payment = principal / num_payments
+    else:
+        monthly_payment = principal * (monthly_rate * (1 + monthly_rate) ** num_payments) / ((1 + monthly_rate) ** num_payments - 1)
+    
+    total_cost = monthly_payment * num_payments
+    
+    return {
+        "monthly_payment": round(monthly_payment, 2),
+        "total_cost": round(total_cost, 2),
+        "total_interest": round(total_cost - principal, 2)
+    }
+
+# Use the tool with chat completions
+hai = HAI()
+response = hai.chat.completions.create(
+    model="Dhanishtha-2.0-preview",
+    messages=[{"role": "user", "content": "Calculate mortgage payment for $300,000 at 4.5% for 30 years"}],
+    tools=get_tools(),  # Include all registered tools
+    tool_choice="auto"  # Let the model decide when to use tools
+)
+
+# Handle tool calls in the response
+if response.choices[0].message.tool_calls:
+    tool_call = response.choices[0].message.tool_calls[0]
+    function_name = tool_call.function.name
+    function_args = json.loads(tool_call.function.arguments)
+    
+    # Execute the tool
+    tool = get_registry().get_tool(function_name)
+    result = tool.call(function_args)
+    
+    # Continue the conversation with the tool result
+    follow_up = hai.chat.completions.create(
+        model="Dhanishtha-2.0-preview",
+        messages=[
+            {"role": "user", "content": "Calculate mortgage payment for $300,000 at 4.5% for 30 years"},
+            response.choices[0].message,
+            {
+                "role": "tool",
+                "tool_call_id": tool_call.id,
+                "name": function_name,
+                "content": json.dumps(result)
+            }
+        ]
+    )
+    
+    print(follow_up.choices[0].message.content)
+```
+
+### Advanced Tool Features
+
+The `@tools` decorator automatically:
+- Generates JSON schema from Python type hints
+- Extracts parameter descriptions from docstrings
+- Registers tools in a thread-safe global registry
+- Validates parameters against the schema
+- Provides comprehensive error handling
+
+For more details on tool calling, see the [API Reference](api_reference.md) and [Examples](examples.md).
 
 ## 🆘 Getting Help
 

@@ -228,7 +228,7 @@ def is_fn_object(obj: Any) -> bool:
     Returns:
         True if object is an Fn instance
     """
-    return hasattr(obj, 'to_openai_tool') and hasattr(obj, 'call')
+    return hasattr(obj, 'to_tool_format') and hasattr(obj, 'call')
 
 
 def normalize_tool_choice(

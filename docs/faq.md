@@ -135,7 +135,7 @@ client2 = HAI(api_key='key-2')
 
 We offer two powerful models:
 
-**Helpingai3-raw** - Advanced Emotional Intelligence:
+**Dhanishtha-2.0-preview** - Advanced Emotional Intelligence:
 - Enhanced emotional understanding and contextual awareness
 - Trained on 15M emotional dialogues and 3M therapeutic exchanges
 - Best for emotional support, therapy guidance, and personalized learning
@@ -159,7 +159,7 @@ from HelpingAI import HAI
 
 hai = HAI()
 response = hai.chat.completions.create(
-    model="Helpingai3-raw",
+    model="Dhanishtha-2.0-preview",
     messages=[{"role": "user", "content": "Hello!"}]
 )
 print(response.choices[0].message.content)
@@ -170,7 +170,7 @@ print(response.choices[0].message.content)
 **Non-streaming**: Get the complete response at once
 ```python
 response = hai.chat.completions.create(
-    model="Helpingai3-raw",
+    model="Dhanishtha-2.0-preview",
     messages=[{"role": "user", "content": "Hello"}],
     stream=False  # Default
 )
@@ -179,7 +179,7 @@ response = hai.chat.completions.create(
 **Streaming**: Get response in real-time chunks
 ```python
 for chunk in hai.chat.completions.create(
-    model="Helpingai3-raw",
+    model="Dhanishtha-2.0-preview",
     messages=[{"role": "user", "content": "Hello"}],
     stream=True
 ):
@@ -198,7 +198,7 @@ conversation = [
 ]
 
 response = hai.chat.completions.create(
-    model="Helpingai3-raw",
+    model="Dhanishtha-2.0-preview",
     messages=conversation
 )
 
@@ -235,7 +235,7 @@ The `hide_think` parameter filters out internal reasoning blocks (`<think>` and 
 
 ```python
 response = hai.chat.completions.create(
-    model="Helpingai3-raw",
+    model="Dhanishtha-2.0-preview",
     messages=[{"role": "user", "content": "Explain empathy"}],
     hide_think=True  # Cleaner output
 )
@@ -278,7 +278,7 @@ tools = [
 ]
 
 response = hai.chat.completions.create(
-    model="Helpingai3-raw",
+    model="Dhanishtha-2.0-preview",
     messages=[{"role": "user", "content": "Analyze this text for emotions"}],
     tools=tools,
     tool_choice="auto"
@@ -319,7 +319,7 @@ def robust_completion(messages, max_retries=3):
     for attempt in range(max_retries):
         try:
             return hai.chat.completions.create(
-                model="Helpingai3-raw",
+                model="Dhanishtha-2.0-preview",
                 messages=messages
             )
         except RateLimitError as e:
@@ -412,7 +412,7 @@ def process_batch(message_lists, batch_size=10):
         batch = message_lists[i:i+batch_size]
         for messages in batch:
             yield hai.chat.completions.create(
-                model="Helpingai3-raw",
+                model="Dhanishtha-2.0-preview",
                 messages=messages
             )
         time.sleep(1)  # Pause between batches
@@ -449,7 +449,7 @@ if response.usage:
 1. **Set max_tokens limits**:
 ```python
 response = hai.chat.completions.create(
-    model="HelpingAI2.5-10B",
+    model="Dhanishtha-2.0-preview",
     messages=messages,
     max_tokens=200  # Limit response length
 )
@@ -458,7 +458,7 @@ response = hai.chat.completions.create(
 2. **Use lower temperature for consistent results**:
 ```python
 response = hai.chat.completions.create(
-    model="HelpingAI2.5-10B",
+    model="Dhanishtha-2.0-preview",
     messages=messages,
     temperature=0.3  # More predictable, potentially shorter responses
 )
@@ -502,7 +502,7 @@ messages = [{"role": "user", "content": "Brief question here"}]
 
 # Lower max_tokens
 response = hai.chat.completions.create(
-    model="HelpingAI2.5-10B",
+    model="Dhanishtha-2.0-preview",
     messages=messages,
     max_tokens=200
 )
@@ -511,7 +511,7 @@ response = hai.chat.completions.create(
 3. **Use streaming for long responses**:
 ```python
 for chunk in hai.chat.completions.create(
-    model="HelpingAI2.5-10B",
+    model="Dhanishtha-2.0-preview",
     messages=messages,
     stream=True
 ):
@@ -523,7 +523,7 @@ for chunk in hai.chat.completions.create(
 1. **Lower temperature**:
 ```python
 response = hai.chat.completions.create(
-    model="HelpingAI2.5-10B",
+    model="Dhanishtha-2.0-preview",
     messages=messages,
     temperature=0.2  # More deterministic
 )
@@ -532,7 +532,7 @@ response = hai.chat.completions.create(
 2. **Use seed for reproducibility**:
 ```python
 response = hai.chat.completions.create(
-    model="HelpingAI2.5-10B",
+    model="Dhanishtha-2.0-preview",
     messages=messages,
     seed=42  # Same seed = same response
 )
@@ -600,3 +600,155 @@ When reporting issues, please include:
 ---
 
 **Still have questions?** Don't hesitate to reach out to our support team at helpingaiemotional@gmail.com or create an issue on GitHub. We're here to help you build amazing applications with emotional intelligence! 🚀
+## Too
+l Calling Framework
+
+### How do I create a tool for AI to use?
+
+The easiest way is to use the `@tools` decorator:
+
+```python
+from HelpingAI.tools import tools
+
+@tools
+def get_weather(city: str, units: str = "celsius") -> dict:
+    """Get weather information for a city.
+    
+    Args:
+        city: City name to get weather for
+        units: Temperature units (celsius or fahrenheit)
+    """
+    # Your implementation here
+    return {"temperature": 22, "units": units, "city": city}
+```
+
+### How do I use tools with chat completions?
+
+Use the `get_tools()` function to include all registered tools:
+
+```python
+from HelpingAI import HAI
+from HelpingAI.tools import get_tools
+
+hai = HAI()
+response = hai.chat.completions.create(
+    model="Dhanishtha-2.0-preview",
+    messages=[{"role": "user", "content": "What's the weather in Paris?"}],
+    tools=get_tools(),
+    tool_choice="auto"
+)
+```
+
+### How do I handle tool calls in the response?
+
+Check for tool calls in the response and execute them:
+
+```python
+if response.choices[0].message.tool_calls:
+    tool_call = response.choices[0].message.tool_calls[0]
+    function_name = tool_call.function.name
+    function_args = json.loads(tool_call.function.arguments)
+    
+    # Get the tool from registry
+    from HelpingAI.tools import get_registry
+    tool = get_registry().get_tool(function_name)
+    
+    # Execute the tool
+    result = tool.call(function_args)
+    
+    # Continue the conversation with the tool result
+    follow_up = hai.chat.completions.create(
+        model="Dhanishtha-2.0-preview",
+        messages=[
+            # Previous messages...
+            response.choices[0].message,
+            {
+                "role": "tool",
+                "tool_call_id": tool_call.id,
+                "name": function_name,
+                "content": json.dumps(result)
+            }
+        ]
+    )
+```
+
+### Can I combine my tools with existing OpenAI-format tools?
+
+Yes, use the `merge_tool_lists` function:
+
+```python
+from HelpingAI.tools import merge_tool_lists, get_tools
+
+# Existing OpenAI-format tools
+legacy_tools = [{
+    "type": "function",
+    "function": {
+        "name": "search_web",
+        "description": "Search the web",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "query": {"type": "string"}
+            },
+            "required": ["query"]
+        }
+    }
+}]
+
+# Combine with your @tools functions
+combined_tools = merge_tool_lists(
+    legacy_tools,
+    get_tools()
+)
+
+# Use in chat completion
+response = hai.chat.completions.create(
+    model="Dhanishtha-2.0-preview",
+    messages=[{"role": "user", "content": "Help me with this"}],
+    tools=combined_tools
+)
+```
+
+### How do I handle errors in tool execution?
+
+Use try/except blocks with the specific error types:
+
+```python
+from HelpingAI.tools import ToolExecutionError, SchemaValidationError
+
+try:
+    result = tool.call(arguments)
+except SchemaValidationError as e:
+    print(f"Invalid arguments: {e}")
+    # Handle invalid arguments
+except ToolExecutionError as e:
+    print(f"Tool execution failed: {e}")
+    # Handle execution failure
+```
+
+### How do I create tools with complex parameter types?
+
+The `@tools` decorator supports various Python type hints:
+
+```python
+from typing import List, Optional, Union, Literal
+from enum import Enum
+
+class Priority(Enum):
+    LOW = "low"
+    MEDIUM = "medium"
+    HIGH = "high"
+
+@tools
+def create_task(
+    title: str,
+    description: Optional[str] = None,
+    priority: Priority = Priority.MEDIUM,
+    tags: List[str] = None,
+    due_date: Union[str, None] = None,
+    status: Literal["todo", "in_progress", "done"] = "todo"
+) -> dict:
+    """Create a new task."""
+    # Implementation
+    return {"title": title, "status": "created"}
+```

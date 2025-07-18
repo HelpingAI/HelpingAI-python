@@ -52,7 +52,7 @@ hai = HAI()
 
 # Create a chat completion
 response = hai.chat.completions.create(
-    model="Helpingai3-raw",
+    model="Dhanishtha-2.0-preview",
     messages=[
         {"role": "system", "content": "You are an expert in emotional intelligence."},
         {"role": "user", "content": "What makes a good leader?"}
@@ -67,7 +67,7 @@ print(response.choices[0].message.content)
 ```python
 # Stream responses in real-time
 for chunk in hai.chat.completions.create(
-    model="Helpingai3-raw",
+    model="Dhanishtha-2.0-preview",
     messages=[{"role": "user", "content": "Tell me about empathy"}],
     stream=True
 ):
@@ -113,7 +113,7 @@ def make_completion_with_retry(messages, max_retries=3):
     for attempt in range(max_retries):
         try:
             return hai.chat.completions.create(
-                model="Helpingai3-raw",
+                model="Dhanishtha-2.0-preview",
                 messages=messages
             )
         except RateLimitError as e:
@@ -130,15 +130,15 @@ def make_completion_with_retry(messages, max_retries=3):
 
 ## 🤖 Available Models
 
-### Helpingai3-raw
-- **Advanced Emotional Intelligence**: Enhanced emotional understanding and contextual awareness
-- **Training Data**: 15M emotional dialogues, 3M therapeutic exchanges, 250K cultural conversations, 1M crisis response scenarios
-- **Best For**: AI companionship, emotional support, therapy guidance, personalized learning
-
 ### Dhanishtha-2.0-preview
 - **World's First Intermediate Thinking Model**: Multi-phase reasoning with self-correction capabilities
 - **Unique Features**: `<think>...</think>` blocks for transparent reasoning, structured emotional reasoning (SER)
 - **Best For**: Complex problem-solving, analytical tasks, educational content, reasoning-heavy applications
+
+### Dhanishtha-2.0-preview-mini
+- **Lightweight Reasoning Model**: Efficient version of Dhanishtha-2.0-preview
+- **Unique Features**: Same reasoning capabilities in a more compact model
+- **Best For**: Faster responses, mobile applications, resource-constrained environments
 
 ```python
 # List all available models
@@ -147,7 +147,7 @@ for model in models:
     print(f"Model: {model.id} - {model.description}")
 
 # Get specific model info
-model = hai.models.retrieve("Helpingai3-raw")
+model = hai.models.retrieve("Dhanishtha-2.0-preview")
 print(f"Model: {model.name}")
 
 # Use Dhanishtha-2.0 for complex reasoning
@@ -165,7 +165,7 @@ Transform any Python function into a powerful AI tool with zero boilerplate usin
 
 ```python
 from HelpingAI import HAI
-from HelpingAI.tools import tools, get_tools_format
+from HelpingAI.tools import tools, get_tools
 
 @tools
 def get_weather(city: str, units: str = "celsius") -> str:
@@ -193,9 +193,9 @@ def calculate_tip(bill_amount: float, tip_percentage: float = 15.0) -> dict:
 # Use with chat completions
 hai = HAI()
 response = hai.chat.completions.create(
-    model="Helpingai3-raw",
+    model="Dhanishtha-2.0-preview",
     messages=[{"role": "user", "content": "What's the weather in Paris and calculate tip for $50 bill?"}],
-    tools=get_tools_format()  # Automatically includes all @tools functions
+    tools=get_tools()  # Automatically includes all @tools functions
 )
 
 print(response.choices[0].message.content)
@@ -286,13 +286,13 @@ legacy_tools = [{
 # Combine with @tools functions
 combined_tools = merge_tool_lists(
     legacy_tools,           # Existing tools
-    get_tools_format(),     # @tools functions
+    get_tools(),            # @tools functions
     "math"                  # Category name (if you have categorized tools)
 )
 
 # Use in chat completion
 response = hai.chat.completions.create(
-    model="Helpingai3-raw",
+    model="Dhanishtha-2.0-preview",
     messages=[{"role": "user", "content": "Help me with weather, calculations, and web search"}],
     tools=combined_tools
 )
@@ -396,32 +396,10 @@ Comprehensive documentation is available:
 
 - [📖 Getting Started Guide](docs/getting_started.md) - Installation and basic usage
 - [🔧 API Reference](docs/api_reference.md) - Complete API documentation
+- [🛠️ Tool Calling Guide](docs/tool_calling.md) - Creating and using AI-callable tools
 - [💡 Examples](docs/examples.md) - Code examples and use cases
 - [❓ FAQ](docs/faq.md) - Frequently asked questions
 
-## 🏗️ Project Structure
-
-```
-HelpingAI-python/
-├── HelpingAI/              # Main package
-│   ├── __init__.py         # Package initialization
-│   ├── client.py           # Main HAI client
-│   ├── models.py           # Model management
-│   ├── base_models.py      # Data models
-│   ├── error.py            # Exception classes
-│   ├── version.py          # Version information
-│   └── tools/              # Tool calling utilities
-│       ├── __init__.py     # Tools module exports
-│       ├── core.py         # @tools decorator and Fn class
-│       ├── schema.py       # Automatic schema generation
-│       ├── registry.py     # Tool registry management
-│       ├── compatibility.py # Format conversion utilities
-│       └── errors.py       # Tool-specific exceptions
-├── docs/                   # Documentation
-├── tests/                  # Test suite
-├── setup.py               # Package configuration
-└── README.md              # This file
-```
 
 ## 🔧 Requirements
 
@@ -449,26 +427,8 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - **Issues**: [GitHub Issues](https://github.com/HelpingAI/HelpingAI-python/issues)
 - **Documentation**: [HelpingAI Docs](https://helpingai.co/docs)
 - **Dashboard**: [HelpingAI Dashboard](https://helpingai.co/dashboard)
-- **Email**: varun@helpingai.co
+- **Email**: Team@helpingai.co
 
-## 🚀 What's New in v1.1.0
-
-- **🔧 Tool Calling Framework**: New [`@tools decorator`](HelpingAI/tools/core.py:144) for effortless tool creation
-- **🤖 Automatic Schema Generation**: Type hint-based JSON schema creation with docstring parsing
-- **🔄 Universal Compatibility**: Seamless integration with existing OpenAI-format tools
-- **📝 Smart Documentation**: Multi-format docstring parsing (Google, Sphinx, NumPy styles)
-- **🛡️ Enhanced Tool Error Handling**: Comprehensive exception types for tool operations
-- **Extended Python Support**: Now supports Python 3.7-3.14
-- **Updated Models**: Support for latest models (Helpingai3-raw, Dhanishtha-2.0-preview)
-- **Dhanishtha-2.0 Integration**: World's first intermediate thinking model with multi-phase reasoning
-- **HelpingAI3 Support**: Enhanced emotional intelligence with advanced contextual awareness
-- **Improved Model Management**: Better fallback handling and detailed model descriptions
-- **OpenAI-Compatible Interface**: Familiar API design
-- **Enhanced Error Handling**: Comprehensive exception types
-- **Streaming Support**: Real-time response streaming
-- **Advanced Filtering**: Hide reasoning blocks with `hide_think` parameter
-
----
 
 **Built with ❤️ by the HelpingAI Team**
 

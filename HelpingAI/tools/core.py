@@ -195,16 +195,22 @@ def get_tools(names: List[str] = None) -> List[Fn]:
     return _get_global_registry().get_tools(names)
 
 
-def get_tools_format(names: List[str] = None) -> List[Dict[str, Any]]:
+def get_tools_format(names: List[str] = None, category: str = None) -> List[Dict[str, Any]]:
     """Get tools in standard tool format.
     
     Args:
         names: Specific tool names to retrieve
+        category: Category name to filter tools (optional)
         
     Returns:
         List of tool definitions in standard format
     """
     tools_list = get_tools(names)
+    
+    # Filter by category if provided
+    if category and hasattr(tools_list[0], 'category'):
+        tools_list = [tool for tool in tools_list if tool.category == category]
+        
     return [tool.to_tool_format() for tool in tools_list]
 
 

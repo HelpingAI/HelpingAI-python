@@ -58,7 +58,7 @@ hai = HAI()
 
 # Basic completion
 response = hai.chat.completions.create(
-    model="Helpingai3-raw",
+    model="Dhanishtha-2.0-preview",
     messages=[
         {"role": "user", "content": "Hello! Can you help me understand emotional intelligence?"}
     ]
@@ -72,7 +72,7 @@ print(response.choices[0].message.content)
 ```python
 # Using system messages to set context
 response = hai.chat.completions.create(
-    model="Helpingai3-raw",
+    model="Dhanishtha-2.0-preview",
     messages=[
         {"role": "system", "content": "You are HelpingAI, an expert in emotional intelligence and psychology."},
         {"role": "user", "content": "What are the key components of emotional intelligence?"}
@@ -93,7 +93,7 @@ conversation = [
 
 # First exchange
 response = hai.chat.completions.create(
-    model="Helpingai3-raw",
+    model="Dhanishtha-2.0-preview",
     messages=conversation
 )
 
@@ -110,7 +110,7 @@ conversation.append({
 })
 
 response = hai.chat.completions.create(
-    model="Helpingai3-raw",
+    model="Dhanishtha-2.0-preview",
     messages=conversation
 )
 
@@ -124,7 +124,7 @@ print(response.choices[0].message.content)
 ```python
 # Fine-tuning response characteristics
 response = hai.chat.completions.create(
-    model="Helpingai3-raw",
+    model="Dhanishtha-2.0-preview",
     messages=[{"role": "user", "content": "Write a creative story about friendship"}],
     
     # Creativity controls
@@ -159,7 +159,7 @@ def compare_temperatures(prompt):
     for temp in temperatures:
         print(f"\n--- Temperature: {temp} ---")
         response = hai.chat.completions.create(
-            model="Helpingai3-raw",
+            model="Dhanishtha-2.0-preview",
             messages=[{"role": "user", "content": prompt}],
             temperature=temp,
             max_tokens=100
@@ -175,7 +175,7 @@ compare_temperatures("Describe the color blue in one sentence.")
 ```python
 # Control where generation stops
 response = hai.chat.completions.create(
-    model="Helpingai3-raw",
+    model="Dhanishtha-2.0-preview",
     messages=[{"role": "user", "content": "List the benefits of meditation:"}],
     stop=["\n\n", "In conclusion", "Summary:"],
     max_tokens=200
@@ -192,7 +192,7 @@ print(response.choices[0].message.content)
 # Stream responses in real-time
 def stream_response(prompt):
     response_stream = hai.chat.completions.create(
-        model="Helpingai3-raw",
+        model="Dhanishtha-2.0-preview",
         messages=[{"role": "user", "content": prompt}],
         stream=True
     )
@@ -213,7 +213,7 @@ stream_response("Tell me about the importance of emotional regulation.")
 def stream_with_processing(prompt):
     """Stream with real-time processing and formatting."""
     response_stream = hai.chat.completions.create(
-        model="Helpingai3-raw",
+        model="Dhanishtha-2.0-preview",
         messages=[{"role": "user", "content": prompt}],
         stream=True,
         hide_think=True
@@ -255,7 +255,7 @@ def robust_streaming(prompt, max_retries=3):
     for attempt in range(max_retries):
         try:
             response_stream = hai.chat.completions.create(
-                model="Helpingai3-raw",
+                model="Dhanishtha-2.0-preview",
                 messages=[{"role": "user", "content": prompt}],
                 stream=True,
                 timeout=30.0
@@ -311,7 +311,7 @@ def robust_completion(messages, max_retries=3):
     for attempt in range(max_retries):
         try:
             return hai.chat.completions.create(
-                model="Helpingai3-raw",
+                model="Dhanishtha-2.0-preview",
                 messages=messages
             )
             
@@ -409,7 +409,7 @@ def hai_error_context():
 # Usage
 with hai_error_context():
     response = hai.chat.completions.create(
-        model="Helpingai3-raw",
+        model="Dhanishtha-2.0-preview",
         messages=[{"role": "user", "content": "Hello!"}]
     )
     print(response.choices[0].message.content)
@@ -442,7 +442,7 @@ class EmotionalChatbot:
         try:
             # Generate response
             response = self.hai.chat.completions.create(
-                model="Helpingai3-raw",
+                model="Dhanishtha-2.0-preview",
                 messages=self.conversation_history,
                 temperature=0.7,
                 max_tokens=500,
@@ -471,7 +471,7 @@ class EmotionalChatbot:
         
         try:
             response_stream = self.hai.chat.completions.create(
-                model="Helpingai3-raw",
+                model="Dhanishtha-2.0-preview",
                 messages=self.conversation_history,
                 stream=True,
                 temperature=0.7,
@@ -540,7 +540,7 @@ class ContentAnalyzer:
         """
         
         response = self.hai.chat.completions.create(
-            model="Helpingai3-raw",
+            model="Dhanishtha-2.0-preview",
             messages=[
                 {"role": "system", "content": "You are an expert in emotional analysis and psychology."},
                 {"role": "user", "content": prompt}
@@ -567,7 +567,7 @@ class ContentAnalyzer:
         """
         
         response = self.hai.chat.completions.create(
-            model="Helpingai3-raw",
+            model="Dhanishtha-2.0-preview",
             messages=[
                 {"role": "system", "content": "You are an expert communication coach specializing in emotional intelligence."},
                 {"role": "user", "content": prompt}
@@ -678,7 +678,7 @@ class EducationalAssistant:
         """
         
         response = self.hai.chat.completions.create(
-            model="Helpingai3-raw",
+            model="Dhanishtha-2.0-preview",
             messages=[
                 {"role": "system", "content": "You are a supportive, encouraging tutor who provides constructive feedback."},
                 {"role": "user", "content": prompt}
@@ -726,7 +726,7 @@ class EfficientHAIClient:
             return self.response_cache[cache_key]
         
         response = self.hai.chat.completions.create(
-            model="Helpingai3-raw",
+            model="Dhanishtha-2.0-preview",
             messages=messages,
             temperature=0.3  # Lower temperature for more consistent results
         )
@@ -743,7 +743,7 @@ class EfficientHAIClient:
         for i, messages in enumerate(message_lists):
             try:
                 response = self.hai.chat.completions.create(
-                    model="Helpingai3-raw",
+                    model="Dhanishtha-2.0-preview",
                     messages=messages
                 )
                 results.append(response.choices[0].message.content)
@@ -757,7 +757,7 @@ class EfficientHAIClient:
                 time.sleep(e.retry_after or 60)
                 # Retry the same request
                 response = self.hai.chat.completions.create(
-                    model="Helpingai3-raw",
+                    model="Dhanishtha-2.0-preview",
                     messages=messages
                 )
                 results.append(response.choices[0].message.content)
@@ -774,7 +774,7 @@ class EfficientHAIClient:
             print("⚠️  Input may be too long. Consider summarizing.")
         
         return self.hai.chat.completions.create(
-            model="Helpingai3-raw",
+            model="Dhanishtha-2.0-preview",
             messages=messages,
             max_tokens=max_tokens,
             temperature=0.7
@@ -828,7 +828,7 @@ class ProductionHAIClient:
             "timestamp": datetime.now().isoformat(),
             "request_id": self.request_count,
             "message_count": len(messages),
-            "model": "Helpingai3-raw"
+            "model": "Dhanishtha-2.0-preview"
         }
         
         if response:
@@ -852,7 +852,7 @@ class ProductionHAIClient:
         """Create completion with full production features."""
         try:
             response = self.hai.chat.completions.create(
-                model="Helpingai3-raw",
+                model="Dhanishtha-2.0-preview",
                 messages=messages,
                 **kwargs
             )
@@ -908,7 +908,7 @@ class AsyncHAIWrapper:
     def _sync_completion(self, messages, **kwargs):
         """Synchronous completion method."""
         return self.hai.chat.completions.create(
-            model="Helpingai3-raw",
+            model="Dhanishtha-2.0-preview",
             messages=messages,
             **kwargs
         )
