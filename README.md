@@ -11,6 +11,7 @@ The official Python library for the [HelpingAI](https://helpingai.co) API - Adva
 - **OpenAI-Compatible API**: Drop-in replacement with familiar interface
 - **Emotional Intelligence**: Advanced AI models with emotional understanding
 - **Tool Calling Made Easy**: [`@tools decorator`](HelpingAI/tools/core.py:144) for effortless function-to-tool conversion
+- **Direct Tool Execution**: Simple `.call()` method for executing tools without registry manipulation
 - **Automatic Schema Generation**: Type hint-based JSON schema creation with docstring parsing
 - **Universal Tool Compatibility**: Seamless integration with OpenAI-format tools
 - **Streaming Support**: Real-time response streaming
@@ -201,6 +202,45 @@ response = hai.chat.completions.create(
 print(response.choices[0].message.content)
 ```
 
+### Direct Tool Execution
+
+The HAI client provides a convenient `.call()` method to directly execute tools without having to manually use the registry:
+
+```python
+from HelpingAI import HAI
+from HelpingAI.tools import tools
+
+@tools
+def search(query: str, max_results: int = 5):
+    """Search the web for information"""
+    # Implementation here
+    return {"results": [{"title": "Result 1", "url": "https://example.com"}]}
+
+# Create a client instance
+client = HAI()
+
+# Directly call a tool by name with arguments
+search_result = client.call("search", {"query": "python programming", "max_results": 3})
+print("Search results:", search_result)
+
+# You can also execute tools from model responses
+response = client.chat.completions.create(
+    model="Dhanishtha-2.0-preview",
+    messages=[{"role": "user", "content": "search for quantum computing"}],
+    tools=get_tools(),
+    tool_choice="auto"
+)
+
+# Extract tool name and arguments from the model's tool call
+tool_call = response.choices[0].message.tool_calls[0]
+tool_name = tool_call.function.name
+tool_args = json.loads(tool_call.function.arguments)
+
+# Execute the tool directly
+tool_result = client.call(tool_name, tool_args)
+print(f"Result: {tool_result}")
+```
+
 ### Advanced Tool Features
 
 #### Type System Support
@@ -318,11 +358,9 @@ def divide_numbers(a: float, b: float) -> float:
 # Handle tool execution in your application
 def execute_tool_safely(tool_name: str, arguments: dict):
     try:
-        tool = get_registry().get_tool(tool_name)
-        if not tool:
-            return {"error": f"Tool '{tool_name}' not found"}
-        
-        return tool.call(arguments)
+        # You can use the direct call method instead of registry manipulation
+        hai = HAI()
+        return hai.call(tool_name, arguments)
         
     except ToolExecutionError as e:
         print(f"Tool execution failed: {e}")

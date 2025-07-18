@@ -6,6 +6,7 @@ All notable changes to the HelpingAI Python SDK will be documented in this file.
 
 ### Added
 - **🔧 Tool Calling Framework**: New [`@tools decorator`](HelpingAI/tools/core.py:144) for effortless tool creation
+- **🔄 Direct Tool Execution**: New `.call()` method on HAI client for executing tools without registry manipulation
 - **🤖 Automatic Schema Generation**: Type hint-based JSON schema creation with docstring parsing
 - **📝 Smart Documentation**: Multi-format docstring parsing (Google, Sphinx, NumPy styles)
 - **🧠 Thread-Safe Tool Registry**: Reliable tool management in multi-threaded environments
@@ -19,6 +20,7 @@ All notable changes to the HelpingAI Python SDK will be documented in this file.
 - **🔄 Universal Compatibility**: Seamless integration with existing OpenAI-format tools
 - **Updated Models**: Support for latest models (Dhanishtha-2.0-preview, Dhanishtha-2.0-preview-mini)
 - **Improved Model Management**: Better fallback handling and detailed model descriptions
+- **Simplified Tool Execution**: Direct tool calling with `client.call(tool_name, arguments)` syntax
 - Deprecated `get_tools_format()` in favor of `get_tools()`
 - Updated documentation to reflect current model names and best practices
 

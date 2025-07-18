@@ -883,3 +883,32 @@ class HAI(BaseClient):
         super().__init__(api_key, organization, base_url, timeout)
         self.chat: Chat = Chat(self)
         self.models: Models = Models(self)
+        
+    def call(self, tool_name: str, arguments: Dict[str, Any]) -> Any:
+        """
+        Directly call a tool by name with the given arguments.
+        
+        This method provides a convenient way to execute tools without having to
+        manually use get_registry() and Fn objects.
+        
+        Args:
+            tool_name: Name of the tool to call
+            arguments: Arguments to pass to the tool
+            
+        Returns:
+            Result of the tool execution
+            
+        Raises:
+            ValueError: If the tool is not found
+            ToolExecutionError: If the tool execution fails
+        """
+        # Import here to avoid circular imports
+        from .tools import get_registry
+        
+        # Get the tool from the registry
+        tool = get_registry().get_tool(tool_name)
+        if not tool:
+            raise ValueError(f"Tool '{tool_name}' not found in registry")
+        
+        # Call the tool with the provided arguments
+        return tool.call(arguments)
