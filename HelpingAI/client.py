@@ -3,8 +3,6 @@
 import json
 import platform
 import os
-import threading
-import inspect
 from typing import Optional, Dict, Any, Union, Iterator, List, Literal, cast, TYPE_CHECKING
 
 import requests
@@ -512,11 +510,9 @@ class ChatCompletions:
             return None
         
         # Cache the tools configuration for direct calling
-        self._client._tools_config = tools
+        # Store both in _tools_config (legacy) and _last_chat_tools_config (new fallback)
+        self._client._last_chat_tools_config = tools
         self._client._mcp_manager = None  # Clear cached MCP manager
-        
-        # Also store in global configuration for cross-client access
-        self._client._store_global_tools_config(tools)
         
         try:
             from .tools.compatibility import ensure_openai_format
@@ -875,9 +871,6 @@ class HAI(BaseClient):
     This is the main entry point for interacting with the HelpingAI API.
     """
     
-    # Global tools configuration storage for cross-client access
-    _global_tools_config = None
-    _global_config_lock = threading.Lock()
     
     def __init__(
         self,
@@ -898,6 +891,7 @@ class HAI(BaseClient):
         self.chat: Chat = Chat(self)
         self.models: Models = Models(self)
         self._tools_config: Optional[Union[List[Dict[str, Any]], List, str]] = None
+        self._last_chat_tools_config: Optional[Union[List[Dict[str, Any]], List, str]] = None
         self._mcp_manager = None
         
     def configure_tools(self, tools: Optional[Union[List[Dict[str, Any]], List, str]]) -> None:
@@ -924,127 +918,34 @@ class HAI(BaseClient):
         self._tools_config = tools
         # Clear cached MCP manager to force reinitialization
         self._mcp_manager = None
-        
-        # Also store in global configuration for cross-client access
-        self._store_global_tools_config(tools)
-        
-    def _store_global_tools_config(self, tools: Optional[Union[List[Dict[str, Any]], List, str]]) -> None:
-        """Store tools configuration globally for cross-client access.
-        
-        Args:
-            tools: Tools configuration to store globally
-        """
-        with self._global_config_lock:
-            self.__class__._global_tools_config = tools
+        # Clear cached chat tools since we're explicitly configuring tools
+        self._last_chat_tools_config = None
     
     def _get_effective_tools_config(self) -> Optional[Union[List[Dict[str, Any]], List, str]]:
-        """Get effective tools configuration, checking instance, global storage, and auto-detection.
+        """Get effective tools configuration from instance configuration or recent chat.completions.create() call.
+        
+        This method provides automatic fallback to tools used in the most recent chat.completions.create() call,
+        enabling seamless tool calling workflow where users can call tools directly after using them in chat completions.
+        
+        Priority order:
+        1. Instance-level tools configuration (set via configure_tools())
+        2. Tools from most recent chat.completions.create() call (cached automatically)
         
         Returns:
-            Tools configuration from instance, global storage, or auto-detected from calling context
+            Tools configuration from instance, recent chat call, or None if not configured
         """
-        # First check instance configuration
+        # First priority: explicitly configured tools via configure_tools()
         if self._tools_config is not None:
             return self._tools_config
-        
-        # Fall back to global configuration
-        with self._global_config_lock:
-            global_config = self.__class__._global_tools_config
-            if global_config is not None:
-                return global_config
-        
-        # If no configuration found, try to auto-detect from calling context
-        auto_detected = self._auto_detect_tools_from_context()
-        if auto_detected is not None:
-            # Auto-configure the detected tools for future use
-            self.configure_tools(auto_detected)
-            return auto_detected
+            
+        # Second priority: tools from most recent chat.completions.create() call
+        # This enables the workflow: chat.completions.create(tools=...) -> client.call(tool_name, args)
+        if hasattr(self, '_last_chat_tools_config') and self._last_chat_tools_config is not None:
+            return self._last_chat_tools_config
             
         return None
     
-    def _auto_detect_tools_from_context(self) -> Optional[Union[List[Dict[str, Any]], List, str]]:
-        """Auto-detect tools from the calling context.
-        
-        This method inspects the calling frames to look for common tool variable names
-        like 'tools' and automatically configures them if found.
-        
-        Returns:
-            Tools configuration if found in calling context, None otherwise
-        """
-        try:
-            # Get the current frame and walk up the stack
-            current_frame = inspect.currentframe()
-            if not current_frame:
-                return None
-            
-            # Skip our own frames and look at the caller's context
-            frame = current_frame.f_back  # _get_effective_tools_config
-            if frame:
-                frame = frame.f_back  # call method
-            if frame:
-                frame = frame.f_back  # actual caller
-            
-            # Look through several frames to find tools
-            for _ in range(5):  # Check up to 5 frames up the stack
-                if not frame:
-                    break
-                    
-                # Check for common tool variable names in local and global scope
-                for scope in [frame.f_locals, frame.f_globals]:
-                    for var_name in ['tools', 'tool_config', 'tool_configuration', 'mcp_tools']:
-                        if var_name in scope:
-                            tools_value = scope[var_name]
-                            # Validate that it looks like a tools configuration
-                            if self._is_valid_tools_config(tools_value):
-                                return tools_value
-                
-                frame = frame.f_back
-                
-        except Exception:
-            # If anything goes wrong with frame inspection, fail silently
-            pass
-        
-        return None
     
-    def _is_valid_tools_config(self, value: Any) -> bool:
-        """Check if a value looks like a valid tools configuration.
-        
-        Args:
-            value: The value to check
-            
-        Returns:
-            True if it looks like a tools configuration, False otherwise
-        """
-        if not value:
-            return False
-            
-        # Check if it's a list
-        if isinstance(value, list):
-            # Empty list is valid
-            if len(value) == 0:
-                return True
-            
-            # Check if list contains valid tool items
-            for item in value:
-                if isinstance(item, str):
-                    # Built-in tool names like 'code_interpreter', 'web_search'
-                    continue
-                elif isinstance(item, dict):
-                    # MCP server configurations or other tool configs
-                    if 'mcpServers' in item or 'type' in item or 'function' in item:
-                        continue
-                    # OpenAI-style tool definitions
-                    if 'type' in item and item.get('type') == 'function':
-                        continue
-                else:
-                    return False
-            return True
-        
-        # Check if it's a string (single tool name)
-        if isinstance(value, str):
-            return True
-            
-        return False
             
     def _convert_tools_parameter(
         self,
@@ -1060,7 +961,7 @@ class HAI(BaseClient):
         """
         return self.chat.completions._convert_tools_parameter(tools)
         
-    def call(self, tool_name: str, arguments: Union[Dict[str, Any], str, set]) -> Any:
+    def call(self, tool_name: str, arguments: Union[Dict[str, Any], str, set], tools: Optional[Union[List[Dict[str, Any]], List, str]] = None) -> Any:
         """
         Directly call a tool by name with the given arguments.
         
@@ -1073,6 +974,7 @@ class HAI(BaseClient):
         Args:
             tool_name: Name of the tool to call
             arguments: Arguments to pass to the tool (dict, JSON string, or other)
+            tools: Optional tools configuration to automatically configure before calling
             
         Returns:
             Result of the tool execution
@@ -1083,6 +985,10 @@ class HAI(BaseClient):
         """
         import json
         from typing import Union
+        
+        # Automatically configure tools if provided
+        if tools is not None:
+            self.configure_tools(tools)
         
         # Import here to avoid circular imports
         from .tools import get_registry
@@ -1142,18 +1048,27 @@ class HAI(BaseClient):
                 # MCP package not available, skip MCP tool checking
                 pass
         
-        # If still not found, provide a helpful error message
+        # If still not found, provide a helpful error message with guidance
         error_msg = f"Tool '{tool_name}' not found"
         
         # Check if this looks like an MCP tool name pattern
         if '-' in tool_name and effective_tools_config:
             error_msg += f". Tool '{tool_name}' appears to be an MCP tool but MCP servers may not be properly initialized. Check that the MCP server is running and accessible."
         elif '-' in tool_name and not effective_tools_config:
-            error_msg += f". Tool '{tool_name}' appears to be an MCP tool but no tools are configured. Auto-detection failed to find tools in calling context. Define a 'tools' variable or use client.configure_tools()"
+            error_msg += f". Tool '{tool_name}' appears to be an MCP tool but no tools are configured."
         elif not effective_tools_config:
-            error_msg += ". No tools configured and auto-detection failed to find tools in calling context. Define a 'tools' variable or use client.configure_tools()"
+            error_msg += ". No tools are currently configured."
         else:
             error_msg += " in registry, built-in tools, or configured MCP tools"
+        
+        # Add helpful guidance based on the situation
+        if not effective_tools_config:
+            error_msg += "\n\nTo use tools with client.call(), you have two options:"
+            error_msg += "\n1. First call chat.completions.create() with tools, then call client.call():"
+            error_msg += "\n   response = client.chat.completions.create(model='gpt-4', messages=[...], tools=[...])"
+            error_msg += "\n   result = client.call('tool_name', {'arg': 'value'})"
+            error_msg += "\n2. Configure tools directly on the client:"
+            error_msg += "\n   client.configure_tools([...])  # Then use client.call()"
             
         raise ValueError(error_msg)
     
