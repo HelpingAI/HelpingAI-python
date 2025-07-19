@@ -10,6 +10,7 @@ The official Python library for the [HelpingAI](https://helpingai.co) API - Adva
 
 - **OpenAI-Compatible API**: Drop-in replacement with familiar interface
 - **Emotional Intelligence**: Advanced AI models with emotional understanding
+- **MCP Integration**: Seamless connection to external tools via Multi-Channel Protocol servers
 - **Tool Calling Made Easy**: [`@tools decorator`](HelpingAI/tools/core.py:144) for effortless function-to-tool conversion
 - **Direct Tool Execution**: Simple `.call()` method for executing tools without registry manipulation
 - **Automatic Schema Generation**: Type hint-based JSON schema creation with docstring parsing
@@ -23,6 +24,13 @@ The official Python library for the [HelpingAI](https://helpingai.co) API - Adva
 
 ```bash
 pip install HelpingAI
+```
+
+### Optional Features
+
+```bash
+# Install with MCP (Multi-Channel Protocol) support
+pip install HelpingAI[mcp]
 ```
 
 ## 🔑 Authentication
@@ -158,6 +166,125 @@ response = hai.chat.completions.create(
     hide_think=False  # Show reasoning process
 )
 ```
+## 🛠️ MCP (Multi-Channel Protocol) Integration
+
+Connect to external tools and services through MCP servers for expanded AI capabilities.
+
+### Quick Start with MCP
+
+```python
+from HelpingAI import HAI
+
+client = HAI(api_key="your-api-key")
+
+# Configure MCP servers
+tools = [
+    {
+        'mcpServers': {
+            'time': {
+                'command': 'uvx',
+                'args': ['mcp-server-time', '--local-timezone=Asia/Shanghai']
+            },
+            "fetch": {
+                "command": "uvx",
+                "args": ["mcp-server-fetch"]
+            }
+        }
+    }
+]
+
+# Use MCP tools in chat completion
+response = client.chat.completions.create(
+    model="Dhanishtha-2.0-preview",
+    messages=[{"role": "user", "content": "What time is it in Shanghai?"}],
+    tools=tools
+)
+
+print(response.choices[0].message.content)
+```
+
+### Supported Server Types
+
+```python
+# Stdio-based servers (most common)
+{
+    'command': 'uvx',
+    'args': ['mcp-server-time'],
+    'env': {'TIMEZONE': 'UTC'}  # optional
+}
+
+# HTTP SSE servers
+{
+    'url': 'https://api.example.com/mcp',
+    'headers': {'Authorization': 'Bearer token'},
+    'sse_read_timeout': 300
+}
+
+# Streamable HTTP servers
+{
+    'type': 'streamable-http',
+    'url': 'http://localhost:8000/mcp'
+}
+```
+
+### Popular MCP Servers
+
+- **mcp-server-time** - Time and timezone operations
+- **mcp-server-fetch** - HTTP requests and web scraping
+- **mcp-server-filesystem** - File system operations
+- **mcp-server-memory** - Persistent memory across conversations
+- **mcp-server-sqlite** - SQLite database operations
+- **Custom servers** - Any MCP-compliant server
+
+### Combined Usage
+
+Mix MCP servers with regular tools:
+
+```python
+# Regular OpenAI tools
+regular_tools = [{
+    "type": "function",
+    "function": {
+        "name": "calculate",
+        "description": "Perform calculations",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "expression": {"type": "string"}
+            }
+        }
+    }
+}]
+
+# Combined with MCP servers
+all_tools = regular_tools + [{
+    'mcpServers': {
+        'time': {
+            'command': 'uvx',
+            'args': ['mcp-server-time']
+        }
+    }
+}]
+
+response = client.chat.completions.create(
+    model="Dhanishtha-2.0-preview",
+    messages=[{"role": "user", "content": "Calculate 2+2 and tell me the current time"}],
+    tools=all_tools
+)
+```
+
+### Installation & Setup
+
+```bash
+# Install MCP support
+pip install HelpingAI[mcp]
+
+# Or install MCP package separately
+pip install -U mcp
+```
+
+**Note**: MCP functionality requires the `mcp` package. The SDK provides graceful error handling when MCP is not installed.
+
 ## 🔧 Tool Calling with @tools Decorator
 
 Transform any Python function into a powerful AI tool with zero boilerplate using the [`@tools`](HelpingAI/tools/core.py:144) decorator.
@@ -435,6 +562,7 @@ Comprehensive documentation is available:
 - [📖 Getting Started Guide](docs/getting_started.md) - Installation and basic usage
 - [🔧 API Reference](docs/api_reference.md) - Complete API documentation
 - [🛠️ Tool Calling Guide](docs/tool_calling.md) - Creating and using AI-callable tools
+- [🔌 MCP Integration Guide](docs/mcp_integration.md) - Multi-Channel Protocol integration
 - [💡 Examples](docs/examples.md) - Code examples and use cases
 - [❓ FAQ](docs/faq.md) - Frequently asked questions
 
