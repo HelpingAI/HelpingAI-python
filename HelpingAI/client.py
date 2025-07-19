@@ -884,7 +884,7 @@ class HAI(BaseClient):
         self.chat: Chat = Chat(self)
         self.models: Models = Models(self)
         
-    def call(self, tool_name: str, arguments: Dict[str, Any]) -> Any:
+    def call(self, tool_name: str, arguments: Union[Dict[str, Any], str, set]) -> Any:
         """
         Directly call a tool by name with the given arguments.
         
@@ -896,24 +896,31 @@ class HAI(BaseClient):
         
         Args:
             tool_name: Name of the tool to call
-            arguments: Arguments to pass to the tool
+            arguments: Arguments to pass to the tool (dict, JSON string, or other)
             
         Returns:
             Result of the tool execution
             
         Raises:
-            ValueError: If the tool is not found
+            ValueError: If the tool is not found or arguments are invalid
             ToolExecutionError: If the tool execution fails
         """
+        import json
+        from typing import Union
+        
         # Import here to avoid circular imports
         from .tools import get_registry
         from .tools.builtin_tools import get_builtin_tool_class, is_builtin_tool
         from .tools.mcp_manager import MCPManager
         
+        # Enhanced argument processing with better error handling
+        processed_args = self._process_arguments(arguments, tool_name)
+        
         # First, try to get the tool from the main registry
         tool = get_registry().get_tool(tool_name)
         if tool:
-            return tool.call(arguments)
+            result = tool.call(processed_args)
+            return result
         
         # If not found, check if it's a built-in tool
         if is_builtin_tool(tool_name):
@@ -923,7 +930,8 @@ class HAI(BaseClient):
                 builtin_tool = builtin_class()
                 # Convert it to an Fn object and call it
                 fn_tool = builtin_tool.to_fn()
-                return fn_tool.call(arguments)
+                result = fn_tool.call(processed_args)
+                return result
         
         # If not found, check if it's an MCP tool
         # Note: MCP tools need to be configured via the tools parameter in chat completions
@@ -944,10 +952,76 @@ class HAI(BaseClient):
                                     mcp_tool.description if hasattr(mcp_tool, 'description') else f"MCP tool: {tool_name}",
                                     mcp_tool.inputSchema if hasattr(mcp_tool, 'inputSchema') else {}
                                 )
-                                return fn_tool.call(arguments)
+                                result = fn_tool.call(processed_args)
+                                return result
         except ImportError:
             # MCP package not available, skip MCP tool checking
             pass
         
         # If still not found, raise an error
         raise ValueError(f"Tool '{tool_name}' not found in registry, built-in tools, or MCP tools")
+    
+    def _process_arguments(self, arguments: Union[Dict[str, Any], str, set], tool_name: str) -> Dict[str, Any]:
+        """
+        Process and validate arguments for tool execution.
+        
+        This method handles common user mistakes like:
+        - Passing a set instead of a dict (from {json_string} syntax)
+        - Passing a JSON string that needs parsing
+        - Other argument format issues
+        
+        Args:
+            arguments: Raw arguments in various formats
+            tool_name: Name of the tool (for error messages)
+            
+        Returns:
+            Processed arguments as a dictionary
+            
+        Raises:
+            ValueError: If arguments cannot be processed
+        """
+        import json
+        
+        # Handle None or empty arguments
+        if arguments is None:
+            return {}
+        
+        # If it's already a dict, return as-is
+        if isinstance(arguments, dict):
+            return arguments
+        
+        # Handle common mistake: user used {json_string} which creates a set
+        if isinstance(arguments, set):
+            if len(arguments) == 1:
+                # Try to extract and parse the single item
+                json_str = next(iter(arguments))
+                if isinstance(json_str, str):
+                    try:
+                        parsed = json.loads(json_str)
+                        if isinstance(parsed, dict):
+                            print(f"⚠️  Note: Detected set argument for '{tool_name}'. Use 'json.loads(tool_call.function.arguments)' instead of '{{tool_call.function.arguments}}'")
+                            return parsed
+                    except json.JSONDecodeError:
+                        pass
+            
+            raise ValueError(
+                f"Invalid arguments for tool '{tool_name}': received a set {arguments}. "
+                f"Common mistake: use 'json.loads(tool_call.function.arguments)' instead of '{{tool_call.function.arguments}}'"
+            )
+        
+        # Handle JSON string
+        if isinstance(arguments, str):
+            try:
+                parsed = json.loads(arguments)
+                if isinstance(parsed, dict):
+                    return parsed
+                else:
+                    raise ValueError(f"Invalid arguments for tool '{tool_name}': JSON string must parse to a dictionary, got {type(parsed)}")
+            except json.JSONDecodeError as e:
+                raise ValueError(f"Invalid JSON arguments for tool '{tool_name}': {e}")
+        
+        # Handle other types
+        raise ValueError(
+            f"Invalid arguments for tool '{tool_name}': expected dict, JSON string, but got {type(arguments)}. "
+            f"Received: {arguments}"
+        )
