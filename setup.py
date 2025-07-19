@@ -23,7 +23,7 @@ setup(
     long_description=long_description,
     long_description_content_type="text/markdown",
     author="HelpingAI",
-    author_email="varun@helpingai.co",
+    author_email="Team@helpingai.co",
     url="https://github.com/HelpingAI/HelpingAI-python",
     packages=find_packages(exclude=["tests", "tests.*"]),
     install_requires=[

@@ -5,7 +5,7 @@ All notable changes to the HelpingAI Python SDK will be documented in this file.
 ## [1.2.0] - 2025-07-19
 
 ### Added
-- **🔌 MCP Integration**: Full [Multi-Channel Protocol (MCP)](docs/mcp_integration.md) support for external tool connections
+- **🔌 MCP Integration**: Full [Model context Protocol (MCP)](docs/mcp_integration.md) support for external tool connections
 - **🖥️ Multiple Transport Types**: Support for stdio, SSE, and streamable-http MCP servers
 - **🔄 Automatic Tool Discovery**: MCP tools automatically converted to OpenAI-compatible format
 - **📁 Resource Support**: Built-in `list_resources` and `read_resource` tools for MCP resources
