@@ -3,6 +3,8 @@
 import json
 import platform
 import os
+import threading
+import inspect
 from typing import Optional, Dict, Any, Union, Iterator, List, Literal, cast, TYPE_CHECKING
 
 import requests
@@ -509,6 +511,13 @@ class ChatCompletions:
         if tools is None:
             return None
         
+        # Cache the tools configuration for direct calling
+        self._client._tools_config = tools
+        self._client._mcp_manager = None  # Clear cached MCP manager
+        
+        # Also store in global configuration for cross-client access
+        self._client._store_global_tools_config(tools)
+        
         try:
             from .tools.compatibility import ensure_openai_format
             return ensure_openai_format(tools)
@@ -865,6 +874,11 @@ class HAI(BaseClient):
 
     This is the main entry point for interacting with the HelpingAI API.
     """
+    
+    # Global tools configuration storage for cross-client access
+    _global_tools_config = None
+    _global_config_lock = threading.Lock()
+    
     def __init__(
         self,
         api_key: Optional[str] = None,
@@ -883,32 +897,372 @@ class HAI(BaseClient):
         super().__init__(api_key, organization, base_url, timeout)
         self.chat: Chat = Chat(self)
         self.models: Models = Models(self)
+        self._tools_config: Optional[Union[List[Dict[str, Any]], List, str]] = None
+        self._mcp_manager = None
         
-    def call(self, tool_name: str, arguments: Dict[str, Any]) -> Any:
+    def configure_tools(self, tools: Optional[Union[List[Dict[str, Any]], List, str]]) -> None:
+        """Configure tools for this client instance.
+        
+        This makes tools available for direct calling via client.call().
+        
+        Args:
+            tools: Tools configuration in any supported format:
+                - List containing MCP server configs, built-in tool names, OpenAI format tools
+                - String identifier for built-in tools
+                - None to clear tools configuration
+                
+        Example:
+            client.configure_tools([
+                {'mcpServers': {
+                    'time': {'command': 'uvx', 'args': ['mcp-server-time']},
+                    'fetch': {'command': 'uvx', 'args': ['mcp-server-fetch']}
+                }},
+                'code_interpreter',
+                'web_search'
+            ])
+        """
+        self._tools_config = tools
+        # Clear cached MCP manager to force reinitialization
+        self._mcp_manager = None
+        
+        # Also store in global configuration for cross-client access
+        self._store_global_tools_config(tools)
+        
+    def _store_global_tools_config(self, tools: Optional[Union[List[Dict[str, Any]], List, str]]) -> None:
+        """Store tools configuration globally for cross-client access.
+        
+        Args:
+            tools: Tools configuration to store globally
+        """
+        with self._global_config_lock:
+            self.__class__._global_tools_config = tools
+    
+    def _get_effective_tools_config(self) -> Optional[Union[List[Dict[str, Any]], List, str]]:
+        """Get effective tools configuration, checking instance, global storage, and auto-detection.
+        
+        Returns:
+            Tools configuration from instance, global storage, or auto-detected from calling context
+        """
+        # First check instance configuration
+        if self._tools_config is not None:
+            return self._tools_config
+        
+        # Fall back to global configuration
+        with self._global_config_lock:
+            global_config = self.__class__._global_tools_config
+            if global_config is not None:
+                return global_config
+        
+        # If no configuration found, try to auto-detect from calling context
+        auto_detected = self._auto_detect_tools_from_context()
+        if auto_detected is not None:
+            # Auto-configure the detected tools for future use
+            self.configure_tools(auto_detected)
+            return auto_detected
+            
+        return None
+    
+    def _auto_detect_tools_from_context(self) -> Optional[Union[List[Dict[str, Any]], List, str]]:
+        """Auto-detect tools from the calling context.
+        
+        This method inspects the calling frames to look for common tool variable names
+        like 'tools' and automatically configures them if found.
+        
+        Returns:
+            Tools configuration if found in calling context, None otherwise
+        """
+        try:
+            # Get the current frame and walk up the stack
+            current_frame = inspect.currentframe()
+            if not current_frame:
+                return None
+            
+            # Skip our own frames and look at the caller's context
+            frame = current_frame.f_back  # _get_effective_tools_config
+            if frame:
+                frame = frame.f_back  # call method
+            if frame:
+                frame = frame.f_back  # actual caller
+            
+            # Look through several frames to find tools
+            for _ in range(5):  # Check up to 5 frames up the stack
+                if not frame:
+                    break
+                    
+                # Check for common tool variable names in local and global scope
+                for scope in [frame.f_locals, frame.f_globals]:
+                    for var_name in ['tools', 'tool_config', 'tool_configuration', 'mcp_tools']:
+                        if var_name in scope:
+                            tools_value = scope[var_name]
+                            # Validate that it looks like a tools configuration
+                            if self._is_valid_tools_config(tools_value):
+                                return tools_value
+                
+                frame = frame.f_back
+                
+        except Exception:
+            # If anything goes wrong with frame inspection, fail silently
+            pass
+        
+        return None
+    
+    def _is_valid_tools_config(self, value: Any) -> bool:
+        """Check if a value looks like a valid tools configuration.
+        
+        Args:
+            value: The value to check
+            
+        Returns:
+            True if it looks like a tools configuration, False otherwise
+        """
+        if not value:
+            return False
+            
+        # Check if it's a list
+        if isinstance(value, list):
+            # Empty list is valid
+            if len(value) == 0:
+                return True
+            
+            # Check if list contains valid tool items
+            for item in value:
+                if isinstance(item, str):
+                    # Built-in tool names like 'code_interpreter', 'web_search'
+                    continue
+                elif isinstance(item, dict):
+                    # MCP server configurations or other tool configs
+                    if 'mcpServers' in item or 'type' in item or 'function' in item:
+                        continue
+                    # OpenAI-style tool definitions
+                    if 'type' in item and item.get('type') == 'function':
+                        continue
+                else:
+                    return False
+            return True
+        
+        # Check if it's a string (single tool name)
+        if isinstance(value, str):
+            return True
+            
+        return False
+            
+    def _convert_tools_parameter(
+        self,
+        tools: Optional[Union[List[Dict[str, Any]], List, str]]
+    ) -> Optional[List[Dict[str, Any]]]:
+        """Convenience method to access ChatCompletions tool conversion.
+        
+        Args:
+            tools: Tools in various formats
+            
+        Returns:
+            List of OpenAI-compatible tool definitions or None
+        """
+        return self.chat.completions._convert_tools_parameter(tools)
+        
+    def call(self, tool_name: str, arguments: Union[Dict[str, Any], str, set]) -> Any:
         """
         Directly call a tool by name with the given arguments.
         
         This method provides a convenient way to execute tools without having to
-        manually use get_registry() and Fn objects.
+        manually use get_registry() and Fn objects. It supports:
+        - Tools registered via @tools decorator
+        - Built-in tools (code_interpreter, web_search)
+        - MCP tools (if configured)
         
         Args:
             tool_name: Name of the tool to call
-            arguments: Arguments to pass to the tool
+            arguments: Arguments to pass to the tool (dict, JSON string, or other)
             
         Returns:
             Result of the tool execution
             
         Raises:
-            ValueError: If the tool is not found
+            ValueError: If the tool is not found or arguments are invalid
             ToolExecutionError: If the tool execution fails
         """
+        import json
+        from typing import Union
+        
         # Import here to avoid circular imports
         from .tools import get_registry
+        from .tools.builtin_tools import get_builtin_tool_class, is_builtin_tool
+        from .tools.mcp_manager import MCPManager
         
-        # Get the tool from the registry
+        # Enhanced argument processing with better error handling
+        processed_args = self._process_arguments(arguments, tool_name)
+        
+        # First, try to get the tool from the main registry
         tool = get_registry().get_tool(tool_name)
-        if not tool:
-            raise ValueError(f"Tool '{tool_name}' not found in registry")
+        if tool:
+            result = tool.call(processed_args)
+            return result
         
-        # Call the tool with the provided arguments
-        return tool.call(arguments)
+        # If not found, check if it's a built-in tool
+        if is_builtin_tool(tool_name):
+            builtin_class = get_builtin_tool_class(tool_name)
+            if builtin_class:
+                # Create an instance of the built-in tool
+                builtin_tool = builtin_class()
+                # Convert it to an Fn object and call it
+                fn_tool = builtin_tool.to_fn()
+                result = fn_tool.call(processed_args)
+                return result
+        
+        # If not found, check if it's an MCP tool using effective configuration
+        # MCP tools are named with pattern: {server_name}-{tool_name}
+        effective_tools_config = self._get_effective_tools_config()
+        if effective_tools_config:
+            try:
+                # Initialize MCP manager with effective configuration if needed
+                if not self._mcp_manager:
+                    self._mcp_manager = self._get_mcp_manager_for_tools(effective_tools_config)
+                
+                if self._mcp_manager and self._mcp_manager.clients:
+                    # Check if any MCP client has this tool
+                    for client_id, client in self._mcp_manager.clients.items():
+                        if hasattr(client, 'tools'):
+                            for mcp_tool in client.tools:
+                                # Extract server name from client_id (format: {server_name}_{uuid})
+                                server_name = client_id.split('_')[0]
+                                expected_tool_name = f"{server_name}-{mcp_tool.name}"
+                                
+                                if expected_tool_name == tool_name:
+                                    # Found the MCP tool, create an Fn and call it
+                                    fn_tool = self._mcp_manager._create_mcp_tool_fn(
+                                        name=tool_name,
+                                        client_id=client_id,
+                                        mcp_tool_name=mcp_tool.name,
+                                        description=mcp_tool.description if hasattr(mcp_tool, 'description') else f"MCP tool: {tool_name}",
+                                        parameters=mcp_tool.inputSchema if hasattr(mcp_tool, 'inputSchema') else {'type': 'object', 'properties': {}, 'required': []}
+                                    )
+                                    result = fn_tool.call(processed_args)
+                                    return result
+            except ImportError:
+                # MCP package not available, skip MCP tool checking
+                pass
+        
+        # If still not found, provide a helpful error message
+        error_msg = f"Tool '{tool_name}' not found"
+        
+        # Check if this looks like an MCP tool name pattern
+        if '-' in tool_name and effective_tools_config:
+            error_msg += f". Tool '{tool_name}' appears to be an MCP tool but MCP servers may not be properly initialized. Check that the MCP server is running and accessible."
+        elif '-' in tool_name and not effective_tools_config:
+            error_msg += f". Tool '{tool_name}' appears to be an MCP tool but no tools are configured. Auto-detection failed to find tools in calling context. Define a 'tools' variable or use client.configure_tools()"
+        elif not effective_tools_config:
+            error_msg += ". No tools configured and auto-detection failed to find tools in calling context. Define a 'tools' variable or use client.configure_tools()"
+        else:
+            error_msg += " in registry, built-in tools, or configured MCP tools"
+            
+        raise ValueError(error_msg)
+    
+    def _get_mcp_manager_for_tools(self, tools_config: Optional[Union[List[Dict[str, Any]], List, str]] = None) -> Optional[Any]:
+        """Get or create MCP manager using specified or cached tools configuration.
+        
+        Args:
+            tools_config: Optional tools configuration to use. If None, uses effective config.
+        
+        Returns:
+            MCPManager instance with tools configured, or None if no MCP config found
+        """
+        if tools_config is None:
+            tools_config = self._get_effective_tools_config()
+            
+        if not tools_config:
+            return None
+            
+        try:
+            from .tools.mcp_manager import MCPManager
+            
+            # Find MCP server configs in the tools configuration
+            mcp_configs = []
+            if isinstance(tools_config, list):
+                for item in tools_config:
+                    if isinstance(item, dict) and "mcpServers" in item:
+                        mcp_configs.append(item)
+            
+            if not mcp_configs:
+                return None
+            
+            # Initialize MCP manager with the found configurations
+            manager = MCPManager()
+            
+            # Initialize each MCP config (this populates manager.clients)
+            for config in mcp_configs:
+                try:
+                    manager.init_config(config)  # This returns tools but also populates clients
+                except Exception as e:
+                    # If initialization fails, continue with other configs
+                    print(f"Warning: Failed to initialize MCP config {config}: {e}")
+                    continue
+            
+            return manager if manager.clients else None
+            
+        except ImportError:
+            return None
+    
+    def _process_arguments(self, arguments: Union[Dict[str, Any], str, set], tool_name: str) -> Dict[str, Any]:
+        """
+        Process and validate arguments for tool execution.
+        
+        This method handles common user mistakes like:
+        - Passing a set instead of a dict (from {json_string} syntax)
+        - Passing a JSON string that needs parsing
+        - Other argument format issues
+        
+        Args:
+            arguments: Raw arguments in various formats
+            tool_name: Name of the tool (for error messages)
+            
+        Returns:
+            Processed arguments as a dictionary
+            
+        Raises:
+            ValueError: If arguments cannot be processed
+        """
+        import json
+        
+        # Handle None or empty arguments
+        if arguments is None:
+            return {}
+        
+        # If it's already a dict, return as-is
+        if isinstance(arguments, dict):
+            return arguments
+        
+        # Handle common mistake: user used {json_string} which creates a set
+        if isinstance(arguments, set):
+            if len(arguments) == 1:
+                # Try to extract and parse the single item
+                json_str = next(iter(arguments))
+                if isinstance(json_str, str):
+                    try:
+                        parsed = json.loads(json_str)
+                        if isinstance(parsed, dict):
+                            print(f"⚠️  Note: Detected set argument for '{tool_name}'. Use 'json.loads(tool_call.function.arguments)' instead of '{{tool_call.function.arguments}}'")
+                            return parsed
+                    except json.JSONDecodeError:
+                        pass
+            
+            raise ValueError(
+                f"Invalid arguments for tool '{tool_name}': received a set {arguments}. "
+                f"Common mistake: use 'json.loads(tool_call.function.arguments)' instead of '{{tool_call.function.arguments}}'"
+            )
+        
+        # Handle JSON string
+        if isinstance(arguments, str):
+            try:
+                parsed = json.loads(arguments)
+                if isinstance(parsed, dict):
+                    return parsed
+                else:
+                    raise ValueError(f"Invalid arguments for tool '{tool_name}': JSON string must parse to a dictionary, got {type(parsed)}")
+            except json.JSONDecodeError as e:
+                raise ValueError(f"Invalid JSON arguments for tool '{tool_name}': {e}")
+        
+        # Handle other types
+        raise ValueError(
+            f"Invalid arguments for tool '{tool_name}': expected dict, JSON string, but got {type(arguments)}. "
+            f"Received: {arguments}"
+        )
