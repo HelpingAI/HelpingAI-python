@@ -1,0 +1,57 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "HelpingAI"
+dynamic = ["version"]
+description = "Python client library for the HelpingAI API"
+readme = "README.md"
+requires-python = ">=3.7"
+license = {text = "MIT"}
+authors = [
+    {name = "HelpingAI", email = "Team@helpingai.co"}
+]
+keywords = ["ai", "api", "client", "helpingai"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+dependencies = [
+    "requests",
+    "typing_extensions"
+]
+
+[project.optional-dependencies]
+mcp = ["mcp>=1.0.0"]
+dev = ["pytest", "pytest-cov"]
+
+[project.urls]
+Homepage = "https://github.com/HelpingAI/HelpingAI-python"
+Documentation = "https://helpingai.co/docs"
+Source = "https://github.com/HelpingAI/HelpingAI-python"
+Issues = "https://github.com/HelpingAI/HelpingAI-python/issues"
+
+[tool.setuptools]
+packages = ["HelpingAI"]
+
+[tool.setuptools.package-data]
+HelpingAI = ["py.typed"]
+
+[tool.setuptools.dynamic]
+version = {attr = "HelpingAI.version.VERSION"}
+
+[tool.setuptools.packages.find]
+exclude = ["tests*"]
