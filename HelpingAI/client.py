@@ -3,6 +3,7 @@
 import json
 import platform
 import os
+import threading
 from typing import Optional, Dict, Any, Union, Iterator, List, Literal, cast, TYPE_CHECKING
 
 import requests
@@ -510,8 +511,11 @@ class ChatCompletions:
             return None
         
         # Cache the tools configuration for direct calling
-        self._tools_config = tools
-        self._mcp_manager = None  # Clear cached MCP manager
+        self._client._tools_config = tools
+        self._client._mcp_manager = None  # Clear cached MCP manager
+        
+        # Also store in global configuration for cross-client access
+        self._client._store_global_tools_config(tools)
         
         try:
             from .tools.compatibility import ensure_openai_format
@@ -869,6 +873,11 @@ class HAI(BaseClient):
 
     This is the main entry point for interacting with the HelpingAI API.
     """
+    
+    # Global tools configuration storage for cross-client access
+    _global_tools_config = None
+    _global_config_lock = threading.Lock()
+    
     def __init__(
         self,
         api_key: Optional[str] = None,
@@ -914,6 +923,46 @@ class HAI(BaseClient):
         self._tools_config = tools
         # Clear cached MCP manager to force reinitialization
         self._mcp_manager = None
+        
+        # Also store in global configuration for cross-client access
+        self._store_global_tools_config(tools)
+        
+    def _store_global_tools_config(self, tools: Optional[Union[List[Dict[str, Any]], List, str]]) -> None:
+        """Store tools configuration globally for cross-client access.
+        
+        Args:
+            tools: Tools configuration to store globally
+        """
+        with self._global_config_lock:
+            self.__class__._global_tools_config = tools
+    
+    def _get_effective_tools_config(self) -> Optional[Union[List[Dict[str, Any]], List, str]]:
+        """Get effective tools configuration, checking instance and global storage.
+        
+        Returns:
+            Tools configuration from instance or global storage
+        """
+        # First check instance configuration
+        if self._tools_config is not None:
+            return self._tools_config
+        
+        # Fall back to global configuration
+        with self._global_config_lock:
+            return self.__class__._global_tools_config
+            
+    def _convert_tools_parameter(
+        self,
+        tools: Optional[Union[List[Dict[str, Any]], List, str]]
+    ) -> Optional[List[Dict[str, Any]]]:
+        """Convenience method to access ChatCompletions tool conversion.
+        
+        Args:
+            tools: Tools in various formats
+            
+        Returns:
+            List of OpenAI-compatible tool definitions or None
+        """
+        return self.chat.completions._convert_tools_parameter(tools)
         
     def call(self, tool_name: str, arguments: Union[Dict[str, Any], str, set]) -> Any:
         """
@@ -964,13 +1013,14 @@ class HAI(BaseClient):
                 result = fn_tool.call(processed_args)
                 return result
         
-        # If not found, check if it's an MCP tool using cached configuration
+        # If not found, check if it's an MCP tool using effective configuration
         # MCP tools are named with pattern: {server_name}-{tool_name}
-        if self._tools_config:
+        effective_tools_config = self._get_effective_tools_config()
+        if effective_tools_config:
             try:
-                # Initialize MCP manager with cached configuration if needed
+                # Initialize MCP manager with effective configuration if needed
                 if not self._mcp_manager:
-                    self._mcp_manager = self._get_mcp_manager_for_tools()
+                    self._mcp_manager = self._get_mcp_manager_for_tools(effective_tools_config)
                 
                 if self._mcp_manager and self._mcp_manager.clients:
                     # Check if any MCP client has this tool
@@ -1000,24 +1050,30 @@ class HAI(BaseClient):
         error_msg = f"Tool '{tool_name}' not found"
         
         # Check if this looks like an MCP tool name pattern
-        if '-' in tool_name and self._tools_config:
+        if '-' in tool_name and effective_tools_config:
             error_msg += f". Tool '{tool_name}' appears to be an MCP tool but MCP servers may not be properly initialized. Check that the MCP server is running and accessible."
-        elif '-' in tool_name and not self._tools_config:
-            error_msg += f". Tool '{tool_name}' appears to be an MCP tool but no tools are configured. Use client.configure_tools() to set up MCP servers."
-        elif not self._tools_config:
+        elif '-' in tool_name and not effective_tools_config:
+            error_msg += f". Tool '{tool_name}' appears to be an MCP tool but no tools are configured. Use client.configure_tools() or pass tools to chat.completions.create()"
+        elif not effective_tools_config:
             error_msg += ". No tools configured - use client.configure_tools() or pass tools to chat.completions.create()"
         else:
             error_msg += " in registry, built-in tools, or configured MCP tools"
             
         raise ValueError(error_msg)
     
-    def _get_mcp_manager_for_tools(self) -> Optional[Any]:
-        """Get or create MCP manager using cached tools configuration.
+    def _get_mcp_manager_for_tools(self, tools_config: Optional[Union[List[Dict[str, Any]], List, str]] = None) -> Optional[Any]:
+        """Get or create MCP manager using specified or cached tools configuration.
+        
+        Args:
+            tools_config: Optional tools configuration to use. If None, uses effective config.
         
         Returns:
             MCPManager instance with tools configured, or None if no MCP config found
         """
-        if not self._tools_config:
+        if tools_config is None:
+            tools_config = self._get_effective_tools_config()
+            
+        if not tools_config:
             return None
             
         try:
@@ -1025,8 +1081,8 @@ class HAI(BaseClient):
             
             # Find MCP server configs in the tools configuration
             mcp_configs = []
-            if isinstance(self._tools_config, list):
-                for item in self._tools_config:
+            if isinstance(tools_config, list):
+                for item in tools_config:
                     if isinstance(item, dict) and "mcpServers" in item:
                         mcp_configs.append(item)
             
