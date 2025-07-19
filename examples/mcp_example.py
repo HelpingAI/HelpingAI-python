@@ -1,14 +1,14 @@
 """
-MCP (Multi-Channel Protocol) Integration Example
+MCP (Model Context Protocol) Integration Example
 
-This example demonstrates how to use MCP servers with the HelpingAI SDK.
+This example demonstrates how to use MCP servers (Model Context Protocol) with the HelpingAI SDK.
 """
 
 from HelpingAI import HAI
 
 
 def example_mcp_usage():
-    """Example of using MCP servers with HelpingAI SDK."""
+    """Example of using MCP servers (Model Context Protocol) with HelpingAI SDK."""
     
     # Initialize the client
     client = HAI(api_key="your-api-key")
@@ -56,7 +56,7 @@ def example_mcp_usage():
 
 
 def example_mixed_tools():
-    """Example of mixing MCP servers with regular tools."""
+    """Example of mixing MCP servers (Model Context Protocol) with regular tools."""
     
     client = HAI(api_key="your-api-key")
     
@@ -107,7 +107,7 @@ def example_mixed_tools():
 
 
 def example_advanced_mcp_config():
-    """Example of advanced MCP server configurations."""
+    """Example of advanced MCP (Model Context Protocol) server configurations."""
     
     tools = [
         {
@@ -139,7 +139,7 @@ def example_advanced_mcp_config():
         }
     ]
     
-    print("Advanced MCP configuration:")
+    print("Advanced MCP (Model Context Protocol) configuration:")
     print("- Stdio server with environment variables")
     print("- HTTP SSE server with authentication")
     print("- Streamable HTTP server")
@@ -148,9 +148,9 @@ def example_advanced_mcp_config():
 
 
 if __name__ == "__main__":
-    print("=== HelpingAI MCP Integration Examples ===\n")
+    print("=== HelpingAI MCP (Model Context Protocol) Integration Examples ===\n")
     
-    print("1. Basic MCP Usage:")
+    print("1. Basic MCP (Model Context Protocol) Usage:")
     example_mcp_usage()
     print()
     
@@ -158,5 +158,5 @@ if __name__ == "__main__":
     example_mixed_tools()
     print()
     
-    print("3. Advanced MCP Configuration:")
+    print("3. Advanced MCP (Model Context Protocol) Configuration:")
     example_advanced_mcp_config()

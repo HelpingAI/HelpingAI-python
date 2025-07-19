@@ -1,7 +1,7 @@
-"""MCP (Multi-Channel Protocol) manager for HelpingAI SDK.
+"""MCP (Model Context Protocol) manager for HelpingAI SDK.
 
 This module provides the MCPManager class for managing MCP server connections
-and converting MCP tools to HelpingAI-compatible format.
+and converting MCP tools (Model Context Protocol) to HelpingAI-compatible format.
 """
 
 import asyncio

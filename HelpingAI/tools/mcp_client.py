@@ -1,7 +1,7 @@
-"""MCP client implementation for HelpingAI SDK.
+"""MCP (Model Context Protocol) client implementation for HelpingAI SDK.
 
 This module provides the MCPClient class for connecting to and interacting with
-MCP servers using various transport methods (stdio, SSE, streamable-http).
+MCP servers (Model Context Protocol) using various transport methods (stdio, SSE, streamable-http).
 """
 
 import asyncio

@@ -10,7 +10,7 @@ The official Python library for the [HelpingAI](https://helpingai.co) API - Adva
 
 - **OpenAI-Compatible API**: Drop-in replacement with familiar interface
 - **Emotional Intelligence**: Advanced AI models with emotional understanding
-- **MCP Integration**: Seamless connection to external tools via Multi-Channel Protocol servers
+- **MCP Integration**: Seamless connection to external tools via Model Context Protocol servers
 - **Tool Calling Made Easy**: [`@tools decorator`](HelpingAI/tools/core.py:144) for effortless function-to-tool conversion
 - **Direct Tool Execution**: Simple `.call()` method for executing tools without registry manipulation
 - **Automatic Schema Generation**: Type hint-based JSON schema creation with docstring parsing
@@ -29,7 +29,7 @@ pip install HelpingAI
 ### Optional Features
 
 ```bash
-# Install with MCP (Multi-Channel Protocol) support
+# Install with MCP (Model Context Protocol) support
 pip install HelpingAI[mcp]
 ```
 
@@ -166,7 +166,7 @@ response = hai.chat.completions.create(
     hide_think=False  # Show reasoning process
 )
 ```
-## 🛠️ MCP (Multi-Channel Protocol) Integration
+## 🛠️ MCP (Model Context Protocol) Integration
 
 Connect to external tools and services through MCP servers for expanded AI capabilities.
 
@@ -562,7 +562,7 @@ Comprehensive documentation is available:
 - [📖 Getting Started Guide](docs/getting_started.md) - Installation and basic usage
 - [🔧 API Reference](docs/api_reference.md) - Complete API documentation
 - [🛠️ Tool Calling Guide](docs/tool_calling.md) - Creating and using AI-callable tools
-- [🔌 MCP Integration Guide](docs/mcp_integration.md) - Multi-Channel Protocol integration
+- [🔌 MCP Integration Guide](docs/mcp_integration.md) - Model Context Protocol integration
 - [💡 Examples](docs/examples.md) - Code examples and use cases
 - [❓ FAQ](docs/faq.md) - Frequently asked questions
 

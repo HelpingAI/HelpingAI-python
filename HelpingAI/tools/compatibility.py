@@ -359,10 +359,10 @@ def _convert_fns_to_tools(fns: Optional[List[Fn]]) -> List[Dict[str, Any]]:
 
 
 def _handle_mcp_servers_config(mcp_config: Dict[str, Any]) -> List[Dict[str, Any]]:
-    """Handle MCP servers configuration and return tools in OpenAI format.
+    """Handle MCP (Model Context Protocol) servers configuration and return tools in OpenAI format.
     
     Args:
-        mcp_config: MCP servers configuration dictionary
+        mcp_config: MCP (Model Context Protocol) servers configuration dictionary
         
     Returns:
         List of tools in OpenAI format from MCP servers

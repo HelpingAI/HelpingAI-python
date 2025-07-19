@@ -1,4 +1,5 @@
 """
+
 HelpingAI Tools - Easy-to-use tool calling utilities.
 
 This module provides decorators and utilities for creating standard
@@ -9,7 +10,7 @@ Key components:
 - Fn class: Represent callable functions with metadata
 - get_tools(): Get registered tools (preferred over get_tools_format)
 - get_registry(): Access the tool registry for advanced management
-- MCP integration: Support for Multi-Channel Protocol servers
+- MCP integration: Support for Model Context Protocol) servers
 """
 
 from .core import Fn, tools, get_tools, get_tools_format, clear_registry, get_registry
