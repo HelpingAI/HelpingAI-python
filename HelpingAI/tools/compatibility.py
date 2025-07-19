@@ -358,6 +358,35 @@ def _convert_fns_to_tools(fns: Optional[List[Fn]]) -> List[Dict[str, Any]]:
     return tools
 
 
+def _handle_mcp_servers_config(mcp_config: Dict[str, Any]) -> List[Dict[str, Any]]:
+    """Handle MCP servers configuration and return tools in OpenAI format.
+    
+    Args:
+        mcp_config: MCP servers configuration dictionary
+        
+    Returns:
+        List of tools in OpenAI format from MCP servers
+        
+    Raises:
+        ImportError: If MCP dependencies are not available
+        ValueError: If MCP configuration is invalid
+    """
+    try:
+        from .mcp_manager import MCPManager
+    except ImportError as e:
+        raise ImportError(
+            'MCP functionality requires the `mcp` package. '
+            'Install it with `pip install -U mcp`.'
+        ) from e
+    
+    # Initialize MCP manager and get tools
+    manager = MCPManager()
+    mcp_tools = manager.init_config(mcp_config)
+    
+    # Convert to OpenAI format
+    return _convert_fns_to_tools(mcp_tools)
+
+
 def ensure_openai_format(tools: Optional[Union[List[Dict[str, Any]], List[Fn], str]]) -> Optional[List[Dict[str, Any]]]:
     """Ensure tools are in OpenAI format regardless of input type.
     
@@ -368,7 +397,7 @@ def ensure_openai_format(tools: Optional[Union[List[Dict[str, Any]], List[Fn], s
         tools: Tools in various formats:
             - None: No tools
             - str: Category name to get from registry
-            - List[Dict]: Already in OpenAI format
+            - List[Dict]: Already in OpenAI format, or MCP servers config
             - List[Fn]: Fn objects to convert
             
     Returns:
@@ -391,6 +420,19 @@ def ensure_openai_format(tools: Optional[Union[List[Dict[str, Any]], List[Fn], s
             return []
         
         first_item = tools[0]
+        
+        # Check for MCP servers configuration
+        if isinstance(first_item, dict) and "mcpServers" in first_item:
+            # Handle MCP servers configuration
+            all_tools = []
+            for config_item in tools:
+                if "mcpServers" in config_item:
+                    mcp_tools = _handle_mcp_servers_config(config_item)
+                    all_tools.extend(mcp_tools)
+                elif "type" in config_item:
+                    # Regular OpenAI tool format
+                    all_tools.append(config_item)
+            return all_tools
         
         # Already in OpenAI format
         if isinstance(first_item, dict) and "type" in first_item:

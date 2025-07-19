@@ -23,13 +23,17 @@ setup(
     long_description=long_description,
     long_description_content_type="text/markdown",
     author="HelpingAI",
-    author_email="varun@helpingai.co",
+    author_email="Team@helpingai.co",
     url="https://github.com/HelpingAI/HelpingAI-python",
     packages=find_packages(exclude=["tests", "tests.*"]),
     install_requires=[
         "requests",
         "typing_extensions"
     ],
+    extras_require={
+        "mcp": ["mcp>=1.0.0"],
+        "dev": ["pytest", "pytest-cov"],
+    },
     python_requires=">=3.7",
     classifiers=[
         "Development Status :: 5 - Production/Stable",
