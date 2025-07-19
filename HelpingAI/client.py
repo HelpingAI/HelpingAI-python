@@ -889,7 +889,10 @@ class HAI(BaseClient):
         Directly call a tool by name with the given arguments.
         
         This method provides a convenient way to execute tools without having to
-        manually use get_registry() and Fn objects.
+        manually use get_registry() and Fn objects. It supports:
+        - Tools registered via @tools decorator
+        - Built-in tools (code_interpreter, web_search)
+        - MCP tools (if configured)
         
         Args:
             tool_name: Name of the tool to call
@@ -904,11 +907,47 @@ class HAI(BaseClient):
         """
         # Import here to avoid circular imports
         from .tools import get_registry
+        from .tools.builtin_tools import get_builtin_tool_class, is_builtin_tool
+        from .tools.mcp_manager import MCPManager
         
-        # Get the tool from the registry
+        # First, try to get the tool from the main registry
         tool = get_registry().get_tool(tool_name)
-        if not tool:
-            raise ValueError(f"Tool '{tool_name}' not found in registry")
+        if tool:
+            return tool.call(arguments)
         
-        # Call the tool with the provided arguments
-        return tool.call(arguments)
+        # If not found, check if it's a built-in tool
+        if is_builtin_tool(tool_name):
+            builtin_class = get_builtin_tool_class(tool_name)
+            if builtin_class:
+                # Create an instance of the built-in tool
+                builtin_tool = builtin_class()
+                # Convert it to an Fn object and call it
+                fn_tool = builtin_tool.to_fn()
+                return fn_tool.call(arguments)
+        
+        # If not found, check if it's an MCP tool
+        # Note: MCP tools need to be configured via the tools parameter in chat completions
+        # This is a fallback for direct calling, but users should typically register MCP tools first
+        try:
+            mcp_manager = MCPManager()
+            if mcp_manager.clients:
+                # Check if any MCP client has this tool
+                for client_id, client in mcp_manager.clients.items():
+                    if hasattr(client, 'tools'):
+                        for mcp_tool in client.tools:
+                            if hasattr(mcp_tool, 'name') and mcp_tool.name == tool_name:
+                                # Found the MCP tool, create an Fn and call it
+                                fn_tool = mcp_manager._create_mcp_tool_fn(
+                                    tool_name, 
+                                    client_id, 
+                                    tool_name,  # Use same name for MCP tool
+                                    mcp_tool.description if hasattr(mcp_tool, 'description') else f"MCP tool: {tool_name}",
+                                    mcp_tool.inputSchema if hasattr(mcp_tool, 'inputSchema') else {}
+                                )
+                                return fn_tool.call(arguments)
+        except ImportError:
+            # MCP package not available, skip MCP tool checking
+            pass
+        
+        # If still not found, raise an error
+        raise ValueError(f"Tool '{tool_name}' not found in registry, built-in tools, or MCP tools")
