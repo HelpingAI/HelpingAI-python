@@ -1,23 +1,23 @@
 """
-MCP (Model Context Protocol) Integration Example
+MCP (Model Context Protocol) Integration Example with Built-in Tools
 
-This example demonstrates how to use MCP servers (Model Context Protocol) with the HelpingAI SDK.
+This example demonstrates how to use both MCP servers and built-in tools 
+with the HelpingAI SDK.
 """
 
 from HelpingAI import HAI
 
 
-def example_mcp_usage():
-    """Example of using MCP servers (Model Context Protocol) with HelpingAI SDK."""
+def example_mixed_tools_usage():
+    """Example of using both MCP servers and built-in tools together."""
     
     # Initialize the client
     client = HAI(api_key="your-api-key")
     
-    # Define MCP servers configuration
-    # This is the exact format requested by the user
+    # Define mixed tools configuration - exactly as requested by the user
     tools = [
         {
-            'mcpServers': {
+            'mcpServers': {  # MCP servers configuration
                 'time': {
                     'command': 'uvx',
                     'args': ['mcp-server-time', '--local-timezone=Asia/Shanghai']
@@ -27,17 +27,20 @@ def example_mcp_usage():
                     "args": ["mcp-server-fetch"]
                 }
             }
-        }
+        },
+        'code_interpreter',  # Built-in tools as simple strings
+        'web_search',
+        'doc_parser'
     ]
     
-    # Create a chat completion with MCP tools
+    # Create a chat completion with mixed tools
     try:
         response = client.chat.completions.create(
             model="HelpingAI2.5-10B",
             messages=[
-                {"role": "user", "content": "What time is it in Shanghai?"}
+                {"role": "user", "content": "Search for Python tutorials and then write a simple Python script"}
             ],
-            tools=tools  # MCP servers will be automatically initialized and converted to tools
+            tools=tools  # Mix of MCP servers and built-in tools
         )
         
         print("Response:", response.choices[0].message.content)
@@ -49,53 +52,35 @@ def example_mcp_usage():
                 print(f"Arguments: {tool_call.function.arguments}")
         
     except ImportError as e:
-        print(f"MCP package not available: {e}")
-        print("Install with: pip install -U mcp")
+        if 'mcp' in str(e):
+            print("MCP package not available, testing built-in tools only...")
+            example_builtin_tools_only()
+        else:
+            raise
     except Exception as e:
         print(f"Error: {e}")
 
 
-def example_mixed_tools():
-    """Example of mixing MCP servers (Model Context Protocol) with regular tools."""
+def example_builtin_tools_only():
+    """Example using only built-in tools (no MCP dependency)."""
     
     client = HAI(api_key="your-api-key")
     
-    # Mix MCP servers with regular OpenAI-format tools
+    # Use only built-in tools - no MCP dependency required
     tools = [
-        # MCP servers configuration
-        {
-            'mcpServers': {
-                'time': {
-                    'command': 'uvx',
-                    'args': ['mcp-server-time']
-                }
-            }
-        },
-        # Regular OpenAI-format tool
-        {
-            "type": "function",
-            "function": {
-                "name": "calculate",
-                "description": "Perform basic math calculations",
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "expression": {
-                            "type": "string",
-                            "description": "Math expression to evaluate"
-                        }
-                    },
-                    "required": ["expression"]
-                }
-            }
-        }
+        'code_interpreter',  # Execute Python code
+        'web_search',        # Search the web
+        'doc_parser',        # Parse documents
+        'storage',           # Store and retrieve files
+        'image_gen',         # Generate images (placeholder)
+        'retrieval'          # Information retrieval (placeholder)
     ]
     
     try:
         response = client.chat.completions.create(
             model="HelpingAI2.5-10B",
             messages=[
-                {"role": "user", "content": "What time is it and what is 2+2?"}
+                {"role": "user", "content": "Write a Python script to calculate fibonacci numbers"}
             ],
             tools=tools
         )
@@ -106,57 +91,153 @@ def example_mixed_tools():
         print(f"Error: {e}")
 
 
-def example_advanced_mcp_config():
-    """Example of advanced MCP (Model Context Protocol) server configurations."""
+def example_specific_builtin_tools():
+    """Example using specific built-in tools."""
+    
+    client = HAI(api_key="your-api-key")
+    
+    # Use only specific built-in tools
+    tools = ['code_interpreter', 'web_search']
+    
+    try:
+        response = client.chat.completions.create(
+            model="HelpingAI2.5-10B",
+            messages=[
+                {"role": "user", "content": "Search for machine learning tutorials and create a simple example"}
+            ],
+            tools=tools
+        )
+        
+        print("Response:", response.choices[0].message.content)
+        
+    except Exception as e:
+        print(f"Error: {e}")
+
+
+def demonstrate_builtin_tools():
+    """Demonstrate the available built-in tools."""
+    
+    from HelpingAI.tools import get_available_builtin_tools
+    
+    print("=== Available Built-in Tools ===")
+    available_tools = get_available_builtin_tools()
+    
+    for tool_name in available_tools:
+        print(f"- {tool_name}")
+    
+    print(f"\nTotal: {len(available_tools)} built-in tools available")
+    
+    print("\n=== Tool Usage Examples ===")
+    
+    # Example 1: Code interpreter
+    print("1. Code Interpreter:")
+    from HelpingAI.tools.builtin_tools.code_interpreter import CodeInterpreterTool
+    code_tool = CodeInterpreterTool()
+    result = code_tool.execute(code="print('Hello, World!')\nresult = 2 ** 10\nprint(f'2^10 = {result}')")
+    print(f"   Result: {result}")
+    
+    # Example 2: Web search
+    print("\n2. Web Search:")
+    from HelpingAI.tools.builtin_tools.web_search import WebSearchTool
+    search_tool = WebSearchTool()
+    result = search_tool.execute(query="artificial intelligence", max_results=2)
+    print(f"   Result: {result[:200]}...")
+    
+    # Example 3: Storage
+    print("\n3. Storage:")
+    from HelpingAI.tools.builtin_tools.storage import StorageTool
+    storage_tool = StorageTool()
+    
+    # Store a file
+    store_result = storage_tool.execute(action="store", filename="test.txt", content="This is a test file.")
+    print(f"   Store: {store_result}")
+    
+    # List files
+    list_result = storage_tool.execute(action="list")
+    print(f"   List: {list_result}")
+    
+    # Retrieve file
+    retrieve_result = storage_tool.execute(action="retrieve", filename="test.txt")
+    print(f"   Retrieve: {retrieve_result}")
+
+
+def example_advanced_mixed_config():
+    """Example of advanced configuration mixing all tool types."""
     
     tools = [
+        # MCP servers configuration
         {
             'mcpServers': {
-                # Stdio-based server with environment variables
-                'database': {
-                    'command': 'python',
-                    'args': ['-m', 'my_db_server'],
-                    'env': {
-                        'DB_URL': 'postgresql://user:pass@localhost/db',
-                        'DB_TIMEOUT': '30'
-                    }
+                'time': {
+                    'command': 'uvx',
+                    'args': ['mcp-server-time', '--local-timezone=Asia/Shanghai']
                 },
-                # HTTP-based server (SSE)
+                "fetch": {
+                    "command": "uvx", 
+                    "args": ["mcp-server-fetch"]
+                },
+                # HTTP-based MCP server
                 'remote_api': {
                     'url': 'https://api.example.com/mcp',
                     'headers': {
-                        'Authorization': 'Bearer your-token',
-                        'Accept': 'text/event-stream'
+                        'Authorization': 'Bearer your-token'
+                    }
+                }
+            }
+        },
+        # Built-in tools
+        'code_interpreter',
+        'web_search',
+        'doc_parser',
+        'storage',
+        # Regular OpenAI-format tool
+        {
+            "type": "function",
+            "function": {
+                "name": "custom_calculator",
+                "description": "Perform custom calculations",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "expression": {
+                            "type": "string",
+                            "description": "Mathematical expression to evaluate"
+                        }
                     },
-                    'sse_read_timeout': 300
-                },
-                # Streamable HTTP server
-                'streamable_server': {
-                    'type': 'streamable-http',
-                    'url': 'http://localhost:8000/mcp'
+                    "required": ["expression"]
                 }
             }
         }
     ]
     
-    print("Advanced MCP (Model Context Protocol) configuration:")
-    print("- Stdio server with environment variables")
-    print("- HTTP SSE server with authentication")
-    print("- Streamable HTTP server")
-    
-    # Configuration is ready to use with client.chat.completions.create()
+    print("Advanced mixed configuration ready:")
+    print("- MCP servers (3 servers)")
+    print("- Built-in tools (4 tools)")
+    print("- Custom OpenAI-format tool (1 tool)")
+    print("\nTotal: Up to 8+ tools available for the AI model")
 
 
 if __name__ == "__main__":
-    print("=== HelpingAI MCP (Model Context Protocol) Integration Examples ===\n")
+    print("=== HelpingAI SDK: MCP + Built-in Tools Integration ===\n")
     
-    print("1. Basic MCP (Model Context Protocol) Usage:")
-    example_mcp_usage()
+    print("1. Demonstrating Built-in Tools:")
+    demonstrate_builtin_tools()
     print()
     
-    print("2. Mixed Tools Example:")
-    example_mixed_tools()
+    print("2. Mixed Tools Usage Example:")
+    example_mixed_tools_usage()
     print()
     
-    print("3. Advanced MCP (Model Context Protocol) Configuration:")
-    example_advanced_mcp_config()
+    print("3. Built-in Tools Only Example:")
+    example_builtin_tools_only()
+    print()
+    
+    print("4. Specific Tools Example:")
+    example_specific_builtin_tools()
+    print()
+    
+    print("5. Advanced Mixed Configuration:")
+    example_advanced_mixed_config()
+    print()
+    
+    print("🎉 Examples completed!")

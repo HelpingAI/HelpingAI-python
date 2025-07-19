@@ -358,6 +358,37 @@ def _convert_fns_to_tools(fns: Optional[List[Fn]]) -> List[Dict[str, Any]]:
     return tools
 
 
+def _handle_builtin_tool(tool_name: str) -> Optional[Dict[str, Any]]:
+    """Handle built-in tool identifier and return tool in OpenAI format.
+    
+    Args:
+        tool_name: Name of the built-in tool
+        
+    Returns:
+        Tool definition in OpenAI format, or None if tool not found
+    """
+    try:
+        from .builtin_tools import get_builtin_tool_class, is_builtin_tool
+        
+        if not is_builtin_tool(tool_name):
+            return None
+        
+        tool_class = get_builtin_tool_class(tool_name)
+        if tool_class is None:
+            return None
+        
+        # Create an instance of the tool
+        tool_instance = tool_class()
+        
+        # Convert to Fn and then to OpenAI format
+        fn_obj = tool_instance.to_fn()
+        return fn_obj.to_tool_format()
+        
+    except Exception:
+        # If there's any error, return None to indicate tool not found
+        return None
+
+
 def _handle_mcp_servers_config(mcp_config: Dict[str, Any]) -> List[Dict[str, Any]]:
     """Handle MCP (Model Context Protocol) servers configuration and return tools in OpenAI format.
     
@@ -387,7 +418,7 @@ def _handle_mcp_servers_config(mcp_config: Dict[str, Any]) -> List[Dict[str, Any
     return _convert_fns_to_tools(mcp_tools)
 
 
-def ensure_openai_format(tools: Optional[Union[List[Dict[str, Any]], List[Fn], str]]) -> Optional[List[Dict[str, Any]]]:
+def ensure_openai_format(tools: Optional[Union[List[Union[Dict[str, Any], str]], List[Fn], str]]) -> Optional[List[Dict[str, Any]]]:
     """Ensure tools are in OpenAI format regardless of input type.
     
     This function handles the conversion from various tool formats to the exact
@@ -398,6 +429,8 @@ def ensure_openai_format(tools: Optional[Union[List[Dict[str, Any]], List[Fn], s
             - None: No tools
             - str: Category name to get from registry
             - List[Dict]: Already in OpenAI format, or MCP servers config
+            - List[str]: Built-in tool identifiers
+            - List[mixed]: Mix of MCP configs, built-in tool names, and OpenAI format tools
             - List[Fn]: Fn objects to convert
             
     Returns:
@@ -419,28 +452,34 @@ def ensure_openai_format(tools: Optional[Union[List[Dict[str, Any]], List[Fn], s
         if not tools:
             return []
         
-        first_item = tools[0]
+        all_tools = []
         
-        # Check for MCP servers configuration
-        if isinstance(first_item, dict) and "mcpServers" in first_item:
+        for item in tools:
+            # Handle string identifiers (built-in tools)
+            if isinstance(item, str):
+                builtin_tool = _handle_builtin_tool(item)
+                if builtin_tool:
+                    all_tools.append(builtin_tool)
+                else:
+                    raise ValueError(f"Unknown built-in tool: {item}")
+            
             # Handle MCP servers configuration
-            all_tools = []
-            for config_item in tools:
-                if "mcpServers" in config_item:
-                    mcp_tools = _handle_mcp_servers_config(config_item)
-                    all_tools.extend(mcp_tools)
-                elif "type" in config_item:
-                    # Regular OpenAI tool format
-                    all_tools.append(config_item)
-            return all_tools
+            elif isinstance(item, dict) and "mcpServers" in item:
+                mcp_tools = _handle_mcp_servers_config(item)
+                all_tools.extend(mcp_tools)
+            
+            # Handle regular OpenAI tool format
+            elif isinstance(item, dict) and "type" in item:
+                all_tools.append(item)
+            
+            # Handle Fn objects
+            elif hasattr(item, 'to_tool_format'):
+                all_tools.append(item.to_tool_format())
+            
+            else:
+                raise ValueError(f"Unsupported tool item type: {type(item)}")
         
-        # Already in OpenAI format
-        if isinstance(first_item, dict) and "type" in first_item:
-            return tools
-        
-        # List of Fn objects
-        if hasattr(first_item, 'to_tool_format'):
-            return _convert_fns_to_tools(tools)
+        return all_tools
     
     raise ValueError(f"Unsupported tools format: {type(tools)}. "
-                    f"Expected None, str, List[Dict], or List[Fn].")
+                    f"Expected None, str, List[Dict], List[str], or List[Fn].")

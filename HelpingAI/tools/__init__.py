@@ -10,7 +10,8 @@ Key components:
 - Fn class: Represent callable functions with metadata
 - get_tools(): Get registered tools (preferred over get_tools_format)
 - get_registry(): Access the tool registry for advanced management
-- MCP integration: Support for Model Context Protocol) servers
+- MCP integration: Support for Model Context Protocol servers
+- Built-in tools: Pre-built tools inspired by Qwen-Agent (code_interpreter, web_search, etc.)
 """
 
 from .core import Fn, tools, get_tools, get_tools_format, clear_registry, get_registry
@@ -29,6 +30,12 @@ from .compatibility import (
     create_fn_from_tool_dict,
     validate_tool_compatibility,
     get_compatibility_warnings
+)
+from .builtin_tools import (
+    get_builtin_tool_class,
+    get_available_builtin_tools,
+    is_builtin_tool,
+    BUILTIN_TOOLS_REGISTRY
 )
 
 __version__ = "1.1.3"
@@ -56,6 +63,12 @@ __all__ = [
     "create_fn_from_tool_dict",
     "validate_tool_compatibility",
     "get_compatibility_warnings",
+    
+    # Built-in tools
+    "get_builtin_tool_class",
+    "get_available_builtin_tools", 
+    "is_builtin_tool",
+    "BUILTIN_TOOLS_REGISTRY",
     
     # Error classes
     "ToolExecutionError",
