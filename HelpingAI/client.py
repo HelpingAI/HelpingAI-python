@@ -1046,6 +1046,65 @@ class HAI(BaseClient):
                 # MCP package not available, skip MCP tool checking
                 pass
         
+        # Try auto-fallback for common MCP tools if no configuration exists
+        if '-' in tool_name and not effective_tools_config:
+            # Extract server name from tool name (e.g., 'time-get_current_time' -> 'time')
+            server_name = tool_name.split('-')[0]
+            
+            # Define common MCP server configurations
+            common_mcp_configs = {
+                'time': {'command': 'uvx', 'args': ['mcp-server-time']},
+                'fetch': {'command': 'uvx', 'args': ['mcp-server-fetch']},
+                'filesystem': {'command': 'uvx', 'args': ['mcp-server-filesystem']},
+                'brave': {'command': 'uvx', 'args': ['mcp-server-brave-search']},
+                'git': {'command': 'uvx', 'args': ['mcp-server-git']},
+                'postgres': {'command': 'uvx', 'args': ['mcp-server-postgres']},
+                'sqlite': {'command': 'uvx', 'args': ['mcp-server-sqlite']},
+                'gdrive': {'command': 'uvx', 'args': ['mcp-server-gdrive']},
+                'github': {'command': 'uvx', 'args': ['mcp-server-github']},
+                'gmail': {'command': 'uvx', 'args': ['mcp-server-gmail']},
+            }
+            
+            if server_name in common_mcp_configs:
+                # Auto-configure the MCP server and try again
+                auto_tools_config = [{'mcpServers': {server_name: common_mcp_configs[server_name]}}]
+                
+                try:
+                    # Set the auto-configuration
+                    self._tools_config = auto_tools_config
+                    self._mcp_manager = None  # Clear cached manager
+                    self._store_global_tools_config(auto_tools_config)
+                    
+                    # Initialize MCP manager with auto-configuration
+                    self._mcp_manager = self._get_mcp_manager_for_tools(auto_tools_config)
+                    
+                    if self._mcp_manager and self._mcp_manager.clients:
+                        # Check if any MCP client has this tool
+                        for client_id, client in self._mcp_manager.clients.items():
+                            if hasattr(client, 'tools'):
+                                for mcp_tool in client.tools:
+                                    # Extract server name from client_id (format: {server_name}_{uuid})
+                                    client_server_name = client_id.split('_')[0]
+                                    expected_tool_name = f"{client_server_name}-{mcp_tool.name}"
+                                    
+                                    if expected_tool_name == tool_name:
+                                        # Found the MCP tool, create an Fn and call it
+                                        fn_tool = self._mcp_manager._create_mcp_tool_fn(
+                                            name=tool_name,
+                                            client_id=client_id,
+                                            mcp_tool_name=mcp_tool.name,
+                                            description=mcp_tool.description if hasattr(mcp_tool, 'description') else f"MCP tool: {tool_name}",
+                                            parameters=mcp_tool.inputSchema if hasattr(mcp_tool, 'inputSchema') else {'type': 'object', 'properties': {}, 'required': []}
+                                        )
+                                        result = fn_tool.call(processed_args)
+                                        return result
+                except ImportError:
+                    # MCP package not available, continue to error
+                    pass
+                except Exception:
+                    # Auto-configuration failed, continue to error  
+                    pass
+        
         # If still not found, provide a helpful error message
         error_msg = f"Tool '{tool_name}' not found"
         
@@ -1053,7 +1112,12 @@ class HAI(BaseClient):
         if '-' in tool_name and effective_tools_config:
             error_msg += f". Tool '{tool_name}' appears to be an MCP tool but MCP servers may not be properly initialized. Check that the MCP server is running and accessible."
         elif '-' in tool_name and not effective_tools_config:
-            error_msg += f". Tool '{tool_name}' appears to be an MCP tool but no tools are configured. Use client.configure_tools() or pass tools to chat.completions.create()"
+            server_name = tool_name.split('-')[0]
+            error_msg += f". Tool '{tool_name}' appears to be an MCP tool but no tools are configured. "
+            if server_name in ['time', 'fetch', 'filesystem', 'brave', 'git', 'postgres', 'sqlite', 'gdrive', 'github', 'gmail']:
+                error_msg += f"The '{server_name}' MCP server can be auto-configured, but the MCP package may not be installed. Install with `pip install -U mcp` and try again."
+            else:
+                error_msg += "Use client.configure_tools() or pass tools to chat.completions.create()"
         elif not effective_tools_config:
             error_msg += ". No tools configured - use client.configure_tools() or pass tools to chat.completions.create()"
         else:
