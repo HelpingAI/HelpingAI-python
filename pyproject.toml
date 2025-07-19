@@ -52,6 +52,3 @@ HelpingAI = ["py.typed"]
 
 [tool.setuptools.dynamic]
 version = {attr = "HelpingAI.version.VERSION"}
-
-[tool.setuptools.packages.find]
-exclude = ["tests*"]
