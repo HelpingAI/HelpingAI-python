@@ -36,6 +36,14 @@ try:
 except ImportError:
     _TOOLS_AVAILABLE = False
 
+# MCP-like server and client modules (using only standard library)
+try:
+    from . import mcp_server
+    from . import mcp_client
+    _MCP_AVAILABLE = True
+except ImportError:
+    _MCP_AVAILABLE = False
+
 
 __version__ = VERSION
 __all__ = [
@@ -80,4 +88,11 @@ if _TOOLS_AVAILABLE:
         "SchemaValidationError",
         "ToolRegistrationError",
         "SchemaGenerationError",
+    ])
+
+# Add MCP modules to __all__ if available
+if _MCP_AVAILABLE:
+    __all__.extend([
+        "mcp_server",
+        "mcp_client",
     ])
