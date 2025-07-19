@@ -116,28 +116,8 @@ def main():
             print(f"      {line}")
     print("      ...")
     
-    # Storage demo
-    print("\n   c) Storage Tool:")
-    from HelpingAI.tools.builtin_tools.storage import StorageTool
-    
-    storage_tool = StorageTool()
-    
-    # Store a file
-    print("      Storing: demo.txt")
-    store_result = storage_tool.execute(
-        action="store", 
-        filename="demo.txt", 
-        content="This is a demo file created by HelpingAI built-in tools!"
-    )
-    print(f"      {store_result}")
-    
-    # List files
-    print("      Listing files:")
-    list_result = storage_tool.execute(action="list")
-    print(f"      {list_result}")
-    
     # Show that tools work with OpenAI format
-    print("\n5. 🔄 OpenAI Tool Format Conversion:")
+    print("\n3. 🔄 OpenAI Tool Format Conversion:")
     print("   " + "=" * 40)
     
     # Convert a built-in tool to OpenAI format
@@ -151,7 +131,7 @@ def main():
     print(f"   - Parameters: {len(tool_def['function']['parameters']['properties'])} parameter(s)")
     
     # Summary
-    print("\n6. 🎉 IMPLEMENTATION COMPLETE!")
+    print("\n4. 🎉 IMPLEMENTATION COMPLETE!")
     print("   " + "=" * 30)
     print("   ✅ Built-in tools infrastructure: WORKING")
     print("   ✅ User-requested configuration format: SUPPORTED")

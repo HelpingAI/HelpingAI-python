@@ -1,7 +1,7 @@
 """
 Web Search Tool for HelpingAI SDK
 
-This tool provides web search functionality using DuckDuckGo's API,
+This tool provides web search functionality using Snapzion Search API,
 inspired by Qwen-Agent's WebSearch tool.
 """
 
@@ -15,25 +15,27 @@ from ..errors import ToolExecutionError
 
 
 class WebSearchTool(BuiltinToolBase):
-    """Web search tool using DuckDuckGo API.
+    """Advanced web search tool using Snapzion Search API.
     
-    This tool allows searching the web for information using DuckDuckGo's
-    instant answer API, which doesn't require an API key.
+    This tool allows searching the web for real-time information with high-quality
+    results including titles, snippets, links, and source information.
     """
     
     name = "web_search"
-    description = "Search the web for information using DuckDuckGo. Returns search results with titles, snippets, and URLs."
+    description = "Search the web for real-time information using advanced search API. Returns comprehensive search results with titles, snippets, links, and source information."
     parameters = {
         "type": "object",
         "properties": {
             "query": {
                 "type": "string", 
-                "description": "Search query to look up"
+                "description": "Search query to look up on the web"
             },
             "max_results": {
                 "type": "integer",
-                "description": "Maximum number of results to return (default: 5)",
-                "default": 5
+                "description": "Maximum number of search results to return (default: 5, max: 10)",
+                "default": 5,
+                "minimum": 1,
+                "maximum": 10
             }
         },
         "required": ["query"]
@@ -48,25 +50,25 @@ class WebSearchTool(BuiltinToolBase):
         super().__init__(config)
     
     def execute(self, **kwargs) -> str:
-        """Execute web search.
+        """Execute web search using Snapzion Search API.
         
         Args:
             query: Search query
-            max_results: Maximum number of results (default: 5)
+            max_results: Maximum number of results (default: 5, max: 10)
             
         Returns:
-            Formatted search results
+            Formatted search results with titles, snippets, links, and sources
         """
         self._validate_parameters(kwargs)
         query = kwargs['query']
-        max_results = kwargs.get('max_results', 5)
+        max_results = min(kwargs.get('max_results', 5), 10)  # Cap at 10 results
         
         if not query.strip():
             return "No search query provided."
         
         try:
-            # Perform the search
-            results = self._search_duckduckgo(query, max_results)
+            # Perform the search using Snapzion API
+            results = self._search_snapzion(query, max_results)
             
             if not results:
                 return f"No search results found for query: {query}"
@@ -82,8 +84,8 @@ class WebSearchTool(BuiltinToolBase):
                 original_error=e
             )
     
-    def _search_duckduckgo(self, query: str, max_results: int) -> List[Dict[str, Any]]:
-        """Search using DuckDuckGo's instant answer API.
+    def _search_snapzion(self, query: str, max_results: int) -> List[Dict[str, Any]]:
+        """Search using Snapzion Search API.
         
         Args:
             query: Search query
@@ -93,53 +95,51 @@ class WebSearchTool(BuiltinToolBase):
             List of search result dictionaries
         """
         try:
-            # Use DuckDuckGo's instant answer API
-            encoded_query = urllib.parse.quote_plus(query)
-            url = f"https://api.duckduckgo.com/?q={encoded_query}&format=json&no_html=1&skip_disambig=1"
+            # Snapzion Search API endpoint
+            url = 'https://search.snapzion.com/get-snippets'
+            
+            # Prepare the request data
+            data = json.dumps({"query": query}).encode('utf-8')
+            
+            # Create the request
+            req = urllib.request.Request(
+                url,
+                data=data,
+                headers={
+                    'Content-Type': 'application/json',
+                    'User-Agent': 'HelpingAI-SDK/1.0'
+                },
+                method='POST'
+            )
             
             # Make the request
-            with urllib.request.urlopen(url, timeout=10) as response:
-                data = json.loads(response.read().decode())
+            with urllib.request.urlopen(req, timeout=15) as response:
+                response_data = json.loads(response.read().decode())
+            
+            # Extract organic results
+            organic_results = response_data.get('organic_results', [])
             
             results = []
+            for result in organic_results[:max_results]:
+                formatted_result = {
+                    'title': result.get('title', 'No title'),
+                    'snippet': result.get('snippet', 'No description available'),
+                    'url': result.get('link', ''),
+                    'source': result.get('source', 'Unknown'),
+                    'position': result.get('position', 0)
+                }
+                results.append(formatted_result)
             
-            # Get abstract/definition if available
-            if data.get('Abstract'):
-                results.append({
-                    'title': data.get('AbstractText', query),
-                    'snippet': data.get('Abstract', ''),
-                    'url': data.get('AbstractURL', ''),
-                    'source': data.get('AbstractSource', 'DuckDuckGo')
-                })
-            
-            # Get related topics
-            for topic in data.get('RelatedTopics', [])[:max_results-len(results)]:
-                if isinstance(topic, dict) and 'Text' in topic:
-                    results.append({
-                        'title': topic.get('FirstURL', '').split('/')[-1].replace('_', ' ') or 'Related Topic',
-                        'snippet': topic.get('Text', ''),
-                        'url': topic.get('FirstURL', ''),
-                        'source': 'Wikipedia'
-                    })
-            
-            # Get instant answer if available
-            if data.get('Answer') and len(results) < max_results:
-                results.insert(0, {
-                    'title': 'Instant Answer',
-                    'snippet': data.get('Answer', ''),
-                    'url': data.get('AnswerURL', ''),
-                    'source': 'DuckDuckGo'
-                })
-            
-            return results[:max_results]
+            return results
             
         except Exception as e:
-            # Fallback to a simple search result
+            # Fallback to a simple error result
             return [{
-                'title': f'Search: {query}',
-                'snippet': f'Sorry, unable to perform web search at this time. Error: {str(e)}',
-                'url': f'https://duckduckgo.com/?q={urllib.parse.quote_plus(query)}',
-                'source': 'DuckDuckGo'
+                'title': f'Search Error: {query}',
+                'snippet': f'Unable to perform web search. Error: {str(e)}. Please try again or rephrase your query.',
+                'url': '',
+                'source': 'System',
+                'position': 1
             }]
     
     def _format_results(self, results: List[Dict[str, Any]], query: str) -> str:
@@ -155,35 +155,22 @@ class WebSearchTool(BuiltinToolBase):
         if not results:
             return f"No results found for: {query}"
         
-        formatted = [f"Web search results for: {query}\n"]
+        formatted = [f"Web search results for: '{query}'\n"]
         
         for i, result in enumerate(results, 1):
             title = result.get('title', 'No title')
             snippet = result.get('snippet', 'No description available')
             url = result.get('url', '')
             source = result.get('source', 'Unknown')
+            position = result.get('position', i)
             
             formatted.append(f"{i}. **{title}**")
             formatted.append(f"   {snippet}")
             if url:
-                formatted.append(f"   URL: {url}")
-            formatted.append(f"   Source: {source}")
+                formatted.append(f"   🔗 URL: {url}")
+            formatted.append(f"   📍 Source: {source}")
+            if position:
+                formatted.append(f"   📊 Position: #{position}")
             formatted.append("")  # Empty line for separation
         
         return "\n".join(formatted)
-    
-    def _search_fallback(self, query: str) -> List[Dict[str, Any]]:
-        """Fallback search method when main API fails.
-        
-        Args:
-            query: Search query
-            
-        Returns:
-            Fallback result
-        """
-        return [{
-            'title': f'Search: {query}',
-            'snippet': 'Web search functionality is currently limited. Try searching manually.',
-            'url': f'https://duckduckgo.com/?q={urllib.parse.quote_plus(query)}',
-            'source': 'DuckDuckGo'
-        }]

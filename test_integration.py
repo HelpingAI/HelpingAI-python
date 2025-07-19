@@ -138,8 +138,6 @@ def test_mixed_configuration():
         },
         'code_interpreter',  # Built-in tools
         'web_search',
-        'storage',
-        'doc_parser',
         # Mix with OpenAI format tool
         {
             "type": "function",
@@ -165,7 +163,7 @@ def test_mixed_configuration():
         tool_names = [tool['function']['name'] for tool in result]
         
         # Check for built-in tools
-        expected_builtin = ['code_interpreter', 'web_search', 'storage', 'doc_parser']
+        expected_builtin = ['code_interpreter', 'web_search']
         for tool_name in expected_builtin:
             if tool_name in tool_names:
                 print(f"  ✅ {tool_name} - available")
@@ -192,7 +190,7 @@ def test_tool_availability():
     from HelpingAI.tools.builtin_tools import get_available_builtin_tools
     
     available = get_available_builtin_tools()
-    expected = ['code_interpreter', 'web_search', 'doc_parser', 'image_gen', 'retrieval', 'storage']
+    expected = ['code_interpreter', 'web_search']
     
     print(f"Available built-in tools: {len(available)}")
     for tool in available:

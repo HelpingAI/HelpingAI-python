@@ -9,91 +9,58 @@ Built-in tools are ready-to-use tools inspired by the Qwen-Agent repository that
 ## Available Built-in Tools
 
 ### 1. `code_interpreter`
-**Execute Python code in a sandboxed environment**
+**Advanced Python code execution sandbox with data science capabilities**
 
-- Supports common libraries (when available): numpy, pandas, matplotlib, seaborn
-- Automatic plot saving for matplotlib figures
-- Safe subprocess execution with timeout
-- Handles both stdout and stderr output
+- Secure sandboxed execution environment with timeout protection
+- Support for popular data science libraries: numpy, pandas, matplotlib, seaborn
+- Automatic plot saving for matplotlib visualizations
+- Comprehensive error handling and output capture
+- Perfect for data analysis, visualization, and computational tasks
 
 ```python
 tools = ['code_interpreter']
 
 # The AI can now execute Python code like:
-# - Data analysis with pandas
-# - Mathematical calculations
-# - Creating visualizations with matplotlib
-# - General Python programming tasks
+# - Data analysis and manipulation with pandas
+# - Mathematical calculations and statistics
+# - Creating beautiful visualizations with matplotlib/seaborn
+# - Scientific computing with numpy
+# - General Python programming and automation
 ```
 
-### 2. `web_search`
-**Search the web using DuckDuckGo**
+**Example capabilities:**
+- Data processing and analysis
+- Mathematical computations
+- Chart and graph generation
+- File manipulation
+- Algorithm implementation
 
-- No API key required
-- Returns formatted search results with titles, snippets, and URLs
-- Configurable number of results
-- Real-time web information access
+### 2. `web_search`
+**Real-time web search with comprehensive results**
+
+- Powered by advanced Snapzion Search API
+- High-quality search results with titles, snippets, and URLs
+- Real-time information access from across the web
+- Configurable result limits (1-10 results)
+- No API key required for basic usage
 
 ```python
 tools = ['web_search']
 
 # The AI can search for:
-# - Current events and news
-# - Technical documentation
-# - General information
-# - Research topics
+# - Current events and breaking news
+# - Technical documentation and tutorials
+# - Research papers and academic content
+# - Product information and reviews
+# - General knowledge and facts
 ```
 
-### 3. `doc_parser`
-**Parse and extract text from documents**
-
-- Currently supports text files
-- Configurable text length limits
-- Extensible for PDF, DOCX, and other formats
-- URL and local file support
-
-```python
-tools = ['doc_parser']
-
-# The AI can parse:
-# - Text files
-# - Documents from URLs
-# - Extract content for analysis
-```
-
-### 4. `storage`
-**File storage and management**
-
-- Store, retrieve, list, and delete files
-- Persistent storage across conversations
-- Simple file management operations
-- Secure file handling
-
-```python
-tools = ['storage']
-
-# The AI can:
-# - Store generated content
-# - Retrieve previously saved files
-# - Manage file collections
-# - Organize data persistently
-```
-
-### 5. `image_gen`
-**Image generation capabilities** (Placeholder)
-
-- Ready for integration with AI image generation services
-- Configurable image sizes and prompts
-- Extensible for DALL-E, Stable Diffusion, etc.
-
-### 6. `retrieval`
-**Information retrieval and semantic search** (Placeholder)
-
-- Ready for integration with vector databases
-- Semantic search capabilities
-- Document collections management
-- Extensible for RAG applications
-
+**Example use cases:**
+- Research assistance
+- Fact checking
+- Current event monitoring
+- Technical problem solving
+- Market research
 ## Usage Examples
 
 ### Basic Usage
@@ -105,8 +72,7 @@ client = HAI(api_key="your-api-key")
 # Use built-in tools with simple string identifiers
 tools = [
     'code_interpreter',
-    'web_search',
-    'storage'
+    'web_search'
 ]
 
 response = client.chat.completions.create(
@@ -161,7 +127,6 @@ tools = [
     # Built-in tools
     'code_interpreter',
     'web_search',
-    'storage',
     # Custom OpenAI-format tool
     {
         "type": "function",
@@ -204,7 +169,7 @@ from HelpingAI.tools import (
 
 # Get all available built-in tools
 available = get_available_builtin_tools()
-print(available)  # ['code_interpreter', 'web_search', ...]
+print(available)  # ['code_interpreter', 'web_search']
 
 # Check if a tool is built-in
 if is_builtin_tool('code_interpreter'):

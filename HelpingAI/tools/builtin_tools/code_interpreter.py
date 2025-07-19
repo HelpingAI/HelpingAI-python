@@ -24,14 +24,15 @@ from ..errors import ToolExecutionError
 
 
 class CodeInterpreterTool(BuiltinToolBase):
-    """Python code execution sandbox tool.
+    """Advanced Python code execution sandbox with data science capabilities.
     
-    This tool allows executing Python code in a controlled environment
-    with support for popular libraries like matplotlib, pandas, numpy, etc.
+    This tool provides a secure environment for executing Python code with built-in
+    support for data analysis, visualization, and scientific computing. Features
+    automatic plot saving, timeout protection, and comprehensive error handling.
     """
     
     name = "code_interpreter"
-    description = "Execute Python code in a sandboxed environment. Supports matplotlib, pandas, numpy, and other common libraries."
+    description = "Execute Python code in a secure sandboxed environment with support for data analysis, visualization, and computation. Includes popular libraries like matplotlib, pandas, numpy, and automatic plot saving."
     parameters = {
         "type": "object",
         "properties": {

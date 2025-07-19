@@ -29,8 +29,7 @@ def example_mixed_tools_usage():
             }
         },
         'code_interpreter',  # Built-in tools as simple strings
-        'web_search',
-        'doc_parser'
+        'web_search'
     ]
     
     # Create a chat completion with mixed tools
@@ -70,10 +69,6 @@ def example_builtin_tools_only():
     tools = [
         'code_interpreter',  # Execute Python code
         'web_search',        # Search the web
-        'doc_parser',        # Parse documents
-        'storage',           # Store and retrieve files
-        'image_gen',         # Generate images (placeholder)
-        'retrieval'          # Information retrieval (placeholder)
     ]
     
     try:
@@ -142,24 +137,6 @@ def demonstrate_builtin_tools():
     search_tool = WebSearchTool()
     result = search_tool.execute(query="artificial intelligence", max_results=2)
     print(f"   Result: {result[:200]}...")
-    
-    # Example 3: Storage
-    print("\n3. Storage:")
-    from HelpingAI.tools.builtin_tools.storage import StorageTool
-    storage_tool = StorageTool()
-    
-    # Store a file
-    store_result = storage_tool.execute(action="store", filename="test.txt", content="This is a test file.")
-    print(f"   Store: {store_result}")
-    
-    # List files
-    list_result = storage_tool.execute(action="list")
-    print(f"   List: {list_result}")
-    
-    # Retrieve file
-    retrieve_result = storage_tool.execute(action="retrieve", filename="test.txt")
-    print(f"   Retrieve: {retrieve_result}")
-
 
 def example_advanced_mixed_config():
     """Example of advanced configuration mixing all tool types."""
@@ -188,8 +165,6 @@ def example_advanced_mixed_config():
         # Built-in tools
         'code_interpreter',
         'web_search',
-        'doc_parser',
-        'storage',
         # Regular OpenAI-format tool
         {
             "type": "function",
@@ -212,9 +187,9 @@ def example_advanced_mixed_config():
     
     print("Advanced mixed configuration ready:")
     print("- MCP servers (3 servers)")
-    print("- Built-in tools (4 tools)")
+    print("- Built-in tools (2 tools)")
     print("- Custom OpenAI-format tool (1 tool)")
-    print("\nTotal: Up to 8+ tools available for the AI model")
+    print("\nTotal: Up to 6+ tools available for the AI model")
 
 
 if __name__ == "__main__":

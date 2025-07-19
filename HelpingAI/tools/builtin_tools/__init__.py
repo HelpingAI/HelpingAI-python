@@ -5,12 +5,8 @@ This module provides built-in tools inspired by the Qwen-Agent repository.
 These tools can be used alongside MCP servers by specifying simple string identifiers.
 
 Available built-in tools:
-- code_interpreter: Python code execution sandbox
-- web_search: Web search functionality 
-- doc_parser: Document parsing capabilities
-- image_gen: Image generation
-- retrieval: Information retrieval
-- storage: File storage operations
+- code_interpreter: Advanced Python code execution sandbox with data science capabilities
+- web_search: Real-time web search with comprehensive results
 
 Usage:
     tools = [
@@ -22,19 +18,11 @@ Usage:
 
 from .code_interpreter import CodeInterpreterTool
 from .web_search import WebSearchTool
-from .doc_parser import DocParserTool
-from .image_gen import ImageGenTool
-from .retrieval import RetrievalTool
-from .storage import StorageTool
 
 # Registry of built-in tools
 BUILTIN_TOOLS_REGISTRY = {
     'code_interpreter': CodeInterpreterTool,
     'web_search': WebSearchTool,
-    'doc_parser': DocParserTool,
-    'image_gen': ImageGenTool,
-    'retrieval': RetrievalTool,
-    'storage': StorageTool,
 }
 
 def get_builtin_tool_class(tool_name: str):
@@ -70,10 +58,6 @@ def is_builtin_tool(tool_name: str) -> bool:
 __all__ = [
     'CodeInterpreterTool',
     'WebSearchTool', 
-    'DocParserTool',
-    'ImageGenTool',
-    'RetrievalTool',
-    'StorageTool',
     'BUILTIN_TOOLS_REGISTRY',
     'get_builtin_tool_class',
     'get_available_builtin_tools',
