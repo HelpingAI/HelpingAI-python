@@ -509,6 +509,10 @@ class ChatCompletions:
         if tools is None:
             return None
         
+        # Cache the tools configuration for direct calling
+        self._tools_config = tools
+        self._mcp_manager = None  # Clear cached MCP manager
+        
         try:
             from .tools.compatibility import ensure_openai_format
             return ensure_openai_format(tools)
@@ -883,6 +887,33 @@ class HAI(BaseClient):
         super().__init__(api_key, organization, base_url, timeout)
         self.chat: Chat = Chat(self)
         self.models: Models = Models(self)
+        self._tools_config: Optional[Union[List[Dict[str, Any]], List, str]] = None
+        self._mcp_manager = None
+        
+    def configure_tools(self, tools: Optional[Union[List[Dict[str, Any]], List, str]]) -> None:
+        """Configure tools for this client instance.
+        
+        This makes tools available for direct calling via client.call().
+        
+        Args:
+            tools: Tools configuration in any supported format:
+                - List containing MCP server configs, built-in tool names, OpenAI format tools
+                - String identifier for built-in tools
+                - None to clear tools configuration
+                
+        Example:
+            client.configure_tools([
+                {'mcpServers': {
+                    'time': {'command': 'uvx', 'args': ['mcp-server-time']},
+                    'fetch': {'command': 'uvx', 'args': ['mcp-server-fetch']}
+                }},
+                'code_interpreter',
+                'web_search'
+            ])
+        """
+        self._tools_config = tools
+        # Clear cached MCP manager to force reinitialization
+        self._mcp_manager = None
         
     def call(self, tool_name: str, arguments: Union[Dict[str, Any], str, set]) -> Any:
         """
@@ -933,36 +964,91 @@ class HAI(BaseClient):
                 result = fn_tool.call(processed_args)
                 return result
         
-        # If not found, check if it's an MCP tool
+        # If not found, check if it's an MCP tool using cached configuration
         # MCP tools are named with pattern: {server_name}-{tool_name}
-        try:
-            mcp_manager = MCPManager()
-            if mcp_manager.clients:
-                # Check if any MCP client has this tool
-                for client_id, client in mcp_manager.clients.items():
-                    if hasattr(client, 'tools'):
-                        for mcp_tool in client.tools:
-                            # Extract server name from client_id (format: {server_name}_{uuid})
-                            server_name = client_id.split('_')[0]
-                            expected_tool_name = f"{server_name}-{mcp_tool.name}"
-                            
-                            if expected_tool_name == tool_name:
-                                # Found the MCP tool, create an Fn and call it
-                                fn_tool = mcp_manager._create_mcp_tool_fn(
-                                    name=tool_name,
-                                    client_id=client_id,
-                                    mcp_tool_name=mcp_tool.name,
-                                    description=mcp_tool.description if hasattr(mcp_tool, 'description') else f"MCP tool: {tool_name}",
-                                    parameters=mcp_tool.inputSchema if hasattr(mcp_tool, 'inputSchema') else {'type': 'object', 'properties': {}, 'required': []}
-                                )
-                                result = fn_tool.call(processed_args)
-                                return result
-        except ImportError:
-            # MCP package not available, skip MCP tool checking
-            pass
+        if self._tools_config:
+            try:
+                # Initialize MCP manager with cached configuration if needed
+                if not self._mcp_manager:
+                    self._mcp_manager = self._get_mcp_manager_for_tools()
+                
+                if self._mcp_manager and self._mcp_manager.clients:
+                    # Check if any MCP client has this tool
+                    for client_id, client in self._mcp_manager.clients.items():
+                        if hasattr(client, 'tools'):
+                            for mcp_tool in client.tools:
+                                # Extract server name from client_id (format: {server_name}_{uuid})
+                                server_name = client_id.split('_')[0]
+                                expected_tool_name = f"{server_name}-{mcp_tool.name}"
+                                
+                                if expected_tool_name == tool_name:
+                                    # Found the MCP tool, create an Fn and call it
+                                    fn_tool = self._mcp_manager._create_mcp_tool_fn(
+                                        name=tool_name,
+                                        client_id=client_id,
+                                        mcp_tool_name=mcp_tool.name,
+                                        description=mcp_tool.description if hasattr(mcp_tool, 'description') else f"MCP tool: {tool_name}",
+                                        parameters=mcp_tool.inputSchema if hasattr(mcp_tool, 'inputSchema') else {'type': 'object', 'properties': {}, 'required': []}
+                                    )
+                                    result = fn_tool.call(processed_args)
+                                    return result
+            except ImportError:
+                # MCP package not available, skip MCP tool checking
+                pass
         
-        # If still not found, raise an error
-        raise ValueError(f"Tool '{tool_name}' not found in registry, built-in tools, or MCP tools")
+        # If still not found, provide a helpful error message
+        error_msg = f"Tool '{tool_name}' not found"
+        
+        # Check if this looks like an MCP tool name pattern
+        if '-' in tool_name and self._tools_config:
+            error_msg += f". Tool '{tool_name}' appears to be an MCP tool but MCP servers may not be properly initialized. Check that the MCP server is running and accessible."
+        elif '-' in tool_name and not self._tools_config:
+            error_msg += f". Tool '{tool_name}' appears to be an MCP tool but no tools are configured. Use client.configure_tools() to set up MCP servers."
+        elif not self._tools_config:
+            error_msg += ". No tools configured - use client.configure_tools() or pass tools to chat.completions.create()"
+        else:
+            error_msg += " in registry, built-in tools, or configured MCP tools"
+            
+        raise ValueError(error_msg)
+    
+    def _get_mcp_manager_for_tools(self) -> Optional[Any]:
+        """Get or create MCP manager using cached tools configuration.
+        
+        Returns:
+            MCPManager instance with tools configured, or None if no MCP config found
+        """
+        if not self._tools_config:
+            return None
+            
+        try:
+            from .tools.mcp_manager import MCPManager
+            
+            # Find MCP server configs in the tools configuration
+            mcp_configs = []
+            if isinstance(self._tools_config, list):
+                for item in self._tools_config:
+                    if isinstance(item, dict) and "mcpServers" in item:
+                        mcp_configs.append(item)
+            
+            if not mcp_configs:
+                return None
+            
+            # Initialize MCP manager with the found configurations
+            manager = MCPManager()
+            
+            # Initialize each MCP config (this populates manager.clients)
+            for config in mcp_configs:
+                try:
+                    manager.init_config(config)  # This returns tools but also populates clients
+                except Exception as e:
+                    # If initialization fails, continue with other configs
+                    print(f"Warning: Failed to initialize MCP config {config}: {e}")
+                    continue
+            
+            return manager if manager.clients else None
+            
+        except ImportError:
+            return None
     
     def _process_arguments(self, arguments: Union[Dict[str, Any], str, set], tool_name: str) -> Dict[str, Any]:
         """
