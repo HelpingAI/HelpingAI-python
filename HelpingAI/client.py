@@ -146,10 +146,31 @@ class BaseClient:
                             raise InvalidModelError(model_name, response.status_code, response.headers)
                         else:
                             raise InvalidModelError("Unknown model", response.status_code, response.headers)
-                    # Add hint for generic 400 errors when not streaming
-                    if not stream and "Request failed with status code" in error_message:
-                        error_message += ". This model or endpoint might require streaming. Try setting stream=True."
-                    raise InvalidRequestError(error_message, status_code=response.status_code, headers=response.headers)
+                    
+                    # Enhanced guidance for 400 errors
+                    enhanced_message = error_message
+                    if not stream:
+                        # Check for various indicators that streaming might be required
+                        streaming_indicators = [
+                            "Request failed with status code",
+                            "streaming",
+                            "stream",
+                            "tool",  # Some tool-related requests might require streaming
+                            "function"  # Function calling might require streaming
+                        ]
+                        
+                        if any(indicator in error_message.lower() for indicator in streaming_indicators):
+                            enhanced_message += (
+                                ". This model or endpoint might require streaming. "
+                                "Try setting stream=True in your request."
+                            )
+                        else:
+                            enhanced_message += (
+                                ". If this error persists, try setting stream=True or "
+                                "check your request parameters."
+                            )
+                    
+                    raise InvalidRequestError(enhanced_message, status_code=response.status_code, headers=response.headers)
                 elif response.status_code == 429:
                     raise TooManyRequestsError(response.status_code, response.headers)
                 elif response.status_code == 503:
@@ -519,13 +540,43 @@ class ChatCompletions:
             return ensure_openai_format(tools)
         except ImportError:
             # Fallback if tools module not available - treat as legacy format
+            import warnings
+            warnings.warn(
+                "Tools module not available. Install optional dependencies with: pip install 'HelpingAI[mcp]'. "
+                "Using legacy tool format."
+            )
             if isinstance(tools, list):
                 return tools
             return None
         except Exception as e:
-            # Log warning but don't break existing functionality
+            # Enhanced error handling with better guidance
             import warnings
-            warnings.warn(f"Tool conversion failed: {e}. Using legacy behavior.")
+            error_msg = str(e)
+            
+            # Provide more helpful error messages based on the error type
+            if "Unknown built-in tool" in error_msg:
+                available_tools = "code_interpreter, web_search"
+                warnings.warn(
+                    f"Tool conversion failed: {e}. "
+                    f"Available built-in tools: {available_tools}. "
+                    f"For custom tools, use OpenAI tool format. Using legacy behavior."
+                )
+            elif "Unsupported tool item type" in error_msg:
+                warnings.warn(
+                    f"Tool conversion failed: {e}. "
+                    f"Tools must be strings (built-in tool names), dicts (OpenAI format), "
+                    f"or MCP server configs. Using legacy behavior."
+                )
+            elif "Unsupported tools format" in error_msg:
+                warnings.warn(
+                    f"Tool conversion failed: {e}. "
+                    f"Supported formats: None, string (category), List[Dict] (OpenAI format), "
+                    f"List[str] (built-in tools), or List[Fn]. Using legacy behavior."
+                )
+            else:
+                warnings.warn(f"Tool conversion failed: {e}. Using legacy behavior.")
+            
+            # Fallback to legacy behavior - return tools as-is if it's a list
             if isinstance(tools, list):
                 return tools
             return None
