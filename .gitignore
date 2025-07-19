@@ -76,3 +76,6 @@ ENV/
 *.log
 lol.py
 .qodo
+
+# Test files and temporary scripts
+test_*.py

@@ -934,8 +934,7 @@ class HAI(BaseClient):
                 return result
         
         # If not found, check if it's an MCP tool
-        # Note: MCP tools need to be configured via the tools parameter in chat completions
-        # This is a fallback for direct calling, but users should typically register MCP tools first
+        # MCP tools are named with pattern: {server_name}-{tool_name}
         try:
             mcp_manager = MCPManager()
             if mcp_manager.clients:
@@ -943,14 +942,18 @@ class HAI(BaseClient):
                 for client_id, client in mcp_manager.clients.items():
                     if hasattr(client, 'tools'):
                         for mcp_tool in client.tools:
-                            if hasattr(mcp_tool, 'name') and mcp_tool.name == tool_name:
+                            # Extract server name from client_id (format: {server_name}_{uuid})
+                            server_name = client_id.split('_')[0]
+                            expected_tool_name = f"{server_name}-{mcp_tool.name}"
+                            
+                            if expected_tool_name == tool_name:
                                 # Found the MCP tool, create an Fn and call it
                                 fn_tool = mcp_manager._create_mcp_tool_fn(
-                                    tool_name, 
-                                    client_id, 
-                                    tool_name,  # Use same name for MCP tool
-                                    mcp_tool.description if hasattr(mcp_tool, 'description') else f"MCP tool: {tool_name}",
-                                    mcp_tool.inputSchema if hasattr(mcp_tool, 'inputSchema') else {}
+                                    name=tool_name,
+                                    client_id=client_id,
+                                    mcp_tool_name=mcp_tool.name,
+                                    description=mcp_tool.description if hasattr(mcp_tool, 'description') else f"MCP tool: {tool_name}",
+                                    parameters=mcp_tool.inputSchema if hasattr(mcp_tool, 'inputSchema') else {'type': 'object', 'properties': {}, 'required': []}
                                 )
                                 result = fn_tool.call(processed_args)
                                 return result
