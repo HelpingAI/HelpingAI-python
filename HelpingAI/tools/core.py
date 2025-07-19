@@ -5,19 +5,26 @@ import inspect
 from dataclasses import dataclass, field
 from typing import Dict, Any, Optional, Callable, Union, List
 
-from ..base_models import BaseModel
 from .schema import generate_schema_from_function, validate_schema
 from .errors import ToolExecutionError, SchemaValidationError, ToolRegistrationError
 
 
 @dataclass
-class Fn(BaseModel):
+class Fn:
     """Represents a callable function/tool with metadata and standard tool format compatibility."""
     
     name: str
     description: str
     parameters: Dict[str, Any]
     function: Optional[Callable] = None
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert the model to a dictionary."""
+        return {
+            'name': self.name,
+            'description': self.description,
+            'parameters': self.parameters
+        }
     
     def to_tool_format(self) -> Dict[str, Any]:
         """Convert to standard tool format.
