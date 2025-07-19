@@ -75,3 +75,4 @@ ENV/
 # Logs
 *.log
 lol.py
+.qodo

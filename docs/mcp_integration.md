@@ -1,6 +1,6 @@
 # MCP (Multi-Channel Protocol) Integration
 
-The HelpingAI SDK now supports MCP (Multi-Channel Protocol) servers, allowing you to easily integrate external tools and services into your AI applications.
+The HelpingAI SDK now supports MCP (Model Context  Protocol) servers, allowing you to easily integrate external tools and services into your AI applications.
 
 ## Installation
 
@@ -43,7 +43,7 @@ tools = [
 
 # Use in chat completion
 response = client.chat.completions.create(
-    model="HelpingAI2.5-10B",
+    model="Dhanishtha-2.0-preview",
     messages=[
         {"role": "user", "content": "What time is it in Shanghai?"}
     ],
@@ -141,27 +141,6 @@ tools = [
 ]
 ```
 
-## Available MCP Servers
-
-Popular MCP servers include:
-
-- **mcp-server-time**: Time and timezone operations
-- **mcp-server-fetch**: HTTP requests and web scraping
-- **mcp-server-filesystem**: File system operations
-- **mcp-server-memory**: Persistent memory across conversations
-- **mcp-server-sqlite**: SQLite database operations
-
-Install them using:
-
-```bash
-# Using uvx (recommended)
-uvx mcp-server-time
-uvx mcp-server-fetch
-
-# Or using npm
-npm install -g @modelcontextprotocol/server-time
-npm install -g @modelcontextprotocol/server-fetch
-```
 
 ## Resources
 
@@ -177,7 +156,7 @@ The SDK handles MCP errors gracefully:
 ```python
 try:
     response = client.chat.completions.create(
-        model="HelpingAI2.5-10B",
+        model="Dhanishtha-2.0-preview",
         messages=[{"role": "user", "content": "What time is it?"}],
         tools=tools
     )
