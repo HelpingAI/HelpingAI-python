@@ -22,15 +22,13 @@ class ToolRegistry:
         Args:
             fn: Fn object to register
             
-        Raises:
-            ToolRegistrationError: If tool name already exists
+        Note:
+            If tool name already exists, registration is skipped silently
         """
         with self._lock:
             if fn.name in self._tools:
-                raise ToolRegistrationError(
-                    f"Tool '{fn.name}' already registered. Tool names must be unique.",
-                    tool_name=fn.name
-                )
+                # Skip registration if tool already exists
+                return
             
             self._tools[fn.name] = fn
     

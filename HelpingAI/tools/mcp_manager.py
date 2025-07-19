@@ -173,87 +173,124 @@ class MCPManager:
         """Async implementation of MCP configuration initialization."""
         tools: List[Fn] = []
         mcp_servers = config['mcpServers']
+        successful_connections = 0
+        failed_connections = []
         
         for server_name, server_config in mcp_servers.items():
-            client = MCPClient()
-            
-            # Connect to the MCP server
-            await client.connect_server(server_name, server_config)
-            
-            # Generate unique client ID
-            client_id = f"{server_name}_{uuid.uuid4()}"
-            client.client_id = client_id
-            self.clients[client_id] = client
-            
-            # Convert MCP tools to Fn objects
-            for mcp_tool in client.tools:
-                # Create tool parameters schema
-                parameters = mcp_tool.inputSchema
-                if 'required' not in parameters:
-                    parameters['required'] = []
+            try:
+                client = MCPClient()
                 
-                # Ensure schema has required fields
-                required_fields = {'type', 'properties', 'required'}
-                missing_fields = required_fields - parameters.keys()
-                if missing_fields:
-                    raise ValueError(f'Missing required schema fields: {missing_fields}')
-
-                # Clean up parameters to only include standard fields
-                cleaned_parameters = {
-                    'type': parameters['type'],
-                    'properties': parameters['properties'],
-                    'required': parameters['required']
-                }
+                # Connect to the MCP server
+                await client.connect_server(server_name, server_config)
                 
-                # Create tool name and Fn object
-                tool_name = f"{server_name}-{mcp_tool.name}"
-                fn_obj = self._create_mcp_tool_fn(
-                    name=tool_name,
-                    client_id=client_id,
-                    mcp_tool_name=mcp_tool.name,
-                    description=mcp_tool.description,
-                    parameters=cleaned_parameters
-                )
-                tools.append(fn_obj)
+                # Generate unique client ID
+                client_id = f"{server_name}_{uuid.uuid4()}"
+                client.client_id = client_id
+                self.clients[client_id] = client
+                successful_connections += 1
+                
+                # Convert MCP tools to Fn objects
+                for mcp_tool in client.tools:
+                    # Create tool parameters schema
+                    parameters = mcp_tool.inputSchema
+                    if 'required' not in parameters:
+                        parameters['required'] = []
+                    
+                    # Ensure schema has required fields
+                    required_fields = {'type', 'properties', 'required'}
+                    missing_fields = required_fields - parameters.keys()
+                    if missing_fields:
+                        raise ValueError(f'Missing required schema fields: {missing_fields}')
 
-            # Add resource tools if available
-            if client.resources:
-                # List resources tool
-                list_resources_name = f"{server_name}-list_resources"
-                list_resources_fn = self._create_mcp_tool_fn(
-                    name=list_resources_name,
-                    client_id=client_id,
-                    mcp_tool_name='list_resources',
-                    description=(
-                        'List available resources from the MCP server. '
-                        'Resources represent data sources that can be used as context.'
-                    ),
-                    parameters={'type': 'object', 'properties': {}, 'required': []}
-                )
-                tools.append(list_resources_fn)
-
-                # Read resource tool
-                read_resource_name = f"{server_name}-read_resource"
-                read_resource_fn = self._create_mcp_tool_fn(
-                    name=read_resource_name,
-                    client_id=client_id,
-                    mcp_tool_name='read_resource',
-                    description=(
-                        'Read a specific resource by URI. '
-                        'Use list_resources first to discover available URIs.'
-                    ),
-                    parameters={
-                        'type': 'object',
-                        'properties': {
-                            'uri': {
-                                'type': 'string',
-                                'description': 'The URI of the resource to read'
-                            }
-                        },
-                        'required': ['uri']
+                    # Clean up parameters to only include standard fields
+                    cleaned_parameters = {
+                        'type': parameters['type'],
+                        'properties': parameters['properties'],
+                        'required': parameters['required']
                     }
-                )
-                tools.append(read_resource_fn)
+                    
+                    # Create tool name and Fn object
+                    tool_name = f"{server_name}-{mcp_tool.name}"
+                    fn_obj = self._create_mcp_tool_fn(
+                        name=tool_name,
+                        client_id=client_id,
+                        mcp_tool_name=mcp_tool.name,
+                        description=mcp_tool.description,
+                        parameters=cleaned_parameters
+                    )
+                    tools.append(fn_obj)
+
+                # Add resource tools if available
+                if client.resources:
+                    # List resources tool
+                    list_resources_name = f"{server_name}-list_resources"
+                    list_resources_fn = self._create_mcp_tool_fn(
+                        name=list_resources_name,
+                        client_id=client_id,
+                        mcp_tool_name='list_resources',
+                        description=(
+                            'List available resources from the MCP server. '
+                            'Resources represent data sources that can be used as context.'
+                        ),
+                        parameters={'type': 'object', 'properties': {}, 'required': []}
+                    )
+                    tools.append(list_resources_fn)
+
+                    # Read resource tool
+                    read_resource_name = f"{server_name}-read_resource"
+                    read_resource_fn = self._create_mcp_tool_fn(
+                        name=read_resource_name,
+                        client_id=client_id,
+                        mcp_tool_name='read_resource',
+                        description=(
+                            'Read a specific resource by URI. '
+                            'Use list_resources first to discover available URIs.'
+                        ),
+                        parameters={
+                            'type': 'object',
+                            'properties': {
+                                'uri': {
+                                    'type': 'string',
+                                    'description': 'The URI of the resource to read'
+                                }
+                            },
+                            'required': ['uri']
+                        }
+                    )
+                    tools.append(read_resource_fn)
+                    
+            except Exception as e:
+                # Log the failed connection but continue with other servers
+                failed_connections.append((server_name, str(e)))
+                continue
+        
+        # If no servers connected successfully, raise an error with helpful details
+        if successful_connections == 0:
+            error_details = []
+            for server_name, error in failed_connections:
+                error_details.append(f"  - {server_name}: {error}")
+            
+            error_msg = f"Failed to connect to any MCP servers:\n" + "\n".join(error_details)
+            
+            # Provide helpful suggestions based on common errors
+            if any("No such file or directory" in error for _, error in failed_connections):
+                error_msg += "\n\nCommon solutions:"
+                if any("uvx" in error for _, error in failed_connections):
+                    error_msg += "\n  - Install uvx: pip install uvx"
+                if any("npx" in error for _, error in failed_connections):
+                    error_msg += "\n  - Install Node.js and npm"
+                error_msg += "\n  - Check that MCP server commands are in your PATH"
+            
+            raise HAIError(error_msg)
+        
+        # If some servers failed but others succeeded, just warn
+        if failed_connections:
+            import warnings
+            failed_names = [name for name, _ in failed_connections]
+            warnings.warn(
+                f"Some MCP servers failed to connect: {', '.join(failed_names)}. "
+                f"Continuing with {successful_connections} successful connection(s)."
+            )
 
         return tools
 

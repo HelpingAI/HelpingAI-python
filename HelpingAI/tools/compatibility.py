@@ -400,7 +400,7 @@ def _handle_mcp_servers_config(mcp_config: Dict[str, Any]) -> List[Dict[str, Any
         
     Raises:
         ImportError: If MCP dependencies are not available
-        ValueError: If MCP configuration is invalid
+        ValueError: If MCP configuration is invalid or all servers fail to connect
     """
     try:
         from .mcp_manager import MCPManager
@@ -412,10 +412,43 @@ def _handle_mcp_servers_config(mcp_config: Dict[str, Any]) -> List[Dict[str, Any
     
     # Initialize MCP manager and get tools
     manager = MCPManager()
-    mcp_tools = manager.init_config(mcp_config)
-    
-    # Convert to OpenAI format
-    return _convert_fns_to_tools(mcp_tools)
+    try:
+        mcp_tools = manager.init_config(mcp_config)
+        
+        # Convert to OpenAI format
+        return _convert_fns_to_tools(mcp_tools)
+        
+    except Exception as e:
+        # Provide helpful error message based on the error type
+        error_msg = str(e)
+        
+        if "No such file or directory" in error_msg:
+            # Common issue: MCP server command not found
+            if "uvx" in error_msg:
+                raise ValueError(
+                    f"Failed to initialize MCP tools: {e}. "
+                    "The 'uvx' command is not installed. Install it with: pip install uvx"
+                ) from e
+            elif "npx" in error_msg:
+                raise ValueError(
+                    f"Failed to initialize MCP tools: {e}. "
+                    "The 'npx' command is not installed. Install Node.js and npm."
+                ) from e
+            else:
+                raise ValueError(
+                    f"Failed to initialize MCP tools: {e}. "
+                    "Check that the MCP server command is installed and accessible."
+                ) from e
+        elif "fileno" in error_msg:
+            # File descriptor related error - usually subprocess communication issue
+            raise ValueError(
+                f"Failed to initialize MCP tools: {e}. "
+                "This may be due to a subprocess communication issue. "
+                "Check that the MCP server command is properly configured."
+            ) from e
+        else:
+            # Generic MCP initialization error
+            raise ValueError(f"Failed to initialize MCP tools: {e}") from e
 
 
 def ensure_openai_format(tools: Optional[Union[List[Union[Dict[str, Any], str]], List[Fn], str]]) -> Optional[List[Dict[str, Any]]]:
@@ -465,8 +498,17 @@ def ensure_openai_format(tools: Optional[Union[List[Union[Dict[str, Any], str]],
             
             # Handle MCP servers configuration
             elif isinstance(item, dict) and "mcpServers" in item:
-                mcp_tools = _handle_mcp_servers_config(item)
-                all_tools.extend(mcp_tools)
+                try:
+                    mcp_tools = _handle_mcp_servers_config(item)
+                    all_tools.extend(mcp_tools)
+                except Exception as e:
+                    # Instead of failing completely, just warn and continue with other tools
+                    import warnings
+                    warnings.warn(
+                        f"Failed to initialize MCP tools: {e}. "
+                        f"Continuing with other available tools."
+                    )
+                    # Continue processing other tools instead of failing
             
             # Handle regular OpenAI tool format
             elif isinstance(item, dict) and "type" in item:

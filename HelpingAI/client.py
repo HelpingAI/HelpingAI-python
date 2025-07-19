@@ -573,12 +573,49 @@ class ChatCompletions:
                     f"Supported formats: None, string (category), List[Dict] (OpenAI format), "
                     f"List[str] (built-in tools), or List[Fn]. Using legacy behavior."
                 )
+            elif "Failed to initialize MCP tools" in error_msg:
+                # Handle MCP-specific errors with helpful guidance
+                if "uvx" in error_msg:
+                    warnings.warn(
+                        f"Tool conversion failed: {e}. "
+                        f"Install uvx with: pip install uvx. Using legacy behavior."
+                    )
+                elif "npx" in error_msg:
+                    warnings.warn(
+                        f"Tool conversion failed: {e}. "
+                        f"Install Node.js and npm to use npx commands. Using legacy behavior."
+                    )
+                elif "fileno" in error_msg:
+                    warnings.warn(
+                        f"Tool conversion failed: {e}. "
+                        f"This may be due to a subprocess issue. Check MCP server configuration. Using legacy behavior."
+                    )
+                else:
+                    warnings.warn(f"Tool conversion failed: {e}. Using legacy behavior.")
             else:
                 warnings.warn(f"Tool conversion failed: {e}. Using legacy behavior.")
             
-            # Fallback to legacy behavior - return tools as-is if it's a list
+            # Fallback to legacy behavior - filter out problematic items
             if isinstance(tools, list):
-                return tools
+                # Filter out MCP server configs and other problematic items
+                filtered_tools = []
+                for item in tools:
+                    if isinstance(item, str):
+                        # Keep string tools (built-in tool names) but warn
+                        filtered_tools.append({
+                            "type": "function",
+                            "function": {
+                                "name": item,
+                                "description": f"Built-in tool: {item}",
+                                "parameters": {"type": "object", "properties": {}, "required": []}
+                            }
+                        })
+                    elif isinstance(item, dict) and "type" in item and item.get("type") == "function":
+                        # Keep valid OpenAI format tools
+                        filtered_tools.append(item)
+                    # Skip MCP server configs and other problematic items
+                
+                return filtered_tools if filtered_tools else None
             return None
 
     def execute_tool_calls(
