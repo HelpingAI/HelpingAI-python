@@ -30,6 +30,10 @@ setup(
         "requests",
         "typing_extensions"
     ],
+    extras_require={
+        "mcp": ["mcp>=1.0.0"],
+        "dev": ["pytest", "pytest-cov"],
+    },
     python_requires=">=3.7",
     classifiers=[
         "Development Status :: 5 - Production/Stable",
