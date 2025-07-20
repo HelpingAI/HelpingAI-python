@@ -2,7 +2,7 @@
 
 All notable changes to the HelpingAI Python SDK will be documented in this file.
 
-## [1.2.0] - 2025-07-19
+## [1.2.0] - 2025-07-20
 
 ### Added
 - **🔌 MCP Integration**: Full [Model context Protocol (MCP)](docs/mcp_integration.md) support for external tool connections

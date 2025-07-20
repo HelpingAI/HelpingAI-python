@@ -1,64 +1,104 @@
-# Tool Calling with HelpingAI
+# Tool Calling Guide
 
-This guide explains how to use the HelpingAI tool calling framework to create and use AI-callable functions.
+This guide provides a comprehensive overview of the tool calling capabilities of the HelpingAI Python SDK.
 
-## Overview
+## Introduction
 
-The HelpingAI tool calling framework allows you to create functions that can be called by AI models. This is useful for:
+Tool calling allows you to extend the capabilities of the HelpingAI models by giving them access to external tools and functions. You can define custom tools, and the model will intelligently decide when to use them to answer user queries.
 
-- Retrieving real-time information
-- Performing calculations
-- Interacting with external APIs
-- Executing custom business logic
-- Creating multi-step workflows
+## Defining Tools
 
-## Creating Tools
+The HelpingAI SDK offers flexible ways to define tools, allowing you to integrate external functionalities seamlessly with your AI models. You can choose the method that best suits your needs:
 
-### Method 1: Using the `@tools` Decorator (Recommended)
+1.  **`@tools` decorator**: The most straightforward way to define a tool directly from a Python function.
+2.  **`Fn` class**: Provides a programmatic approach for creating tool definitions, especially useful for tools that don't map directly to a single Python function or require dynamic creation.
+3.  **OpenAI JSON schema**: For direct compatibility with existing tool definitions in the OpenAI format.
 
-The easiest way to create a tool is to use the `@tools` decorator:
+### Method 1: The `@tools` Decorator
+
+The `@tools` decorator simplifies tool definition by automatically generating the necessary JSON schema from your Python function's signature and docstring. This means you can define a tool just like a regular Python function, and the SDK handles the conversion for the AI model.
+
+**How it works:**
+
+-   **Function Signature**: The decorator inspects the function's parameters and their type hints to infer the data types for the tool's input schema.
+-   **Docstring**: The function's docstring is used to provide the `description` for the tool. For parameters, the decorator attempts to extract descriptions from the docstring (supporting Google, Sphinx, and NumPy style docstrings).
+-   **Return Type**: While the return type hint is not directly used in the tool's schema, it's good practice to include it for code clarity.
 
 ```python
 from HelpingAI.tools import tools
+from typing import Literal
 
 @tools
-def get_weather(city: str, units: str = "celsius") -> dict:
-    """Get current weather information for a city.
-    
+def get_weather(
+    city: str, 
+    unit: Literal["celsius", "fahrenheit"] = "celsius"
+) -> dict:
+    """Get the current weather in a given city.
+
     Args:
-        city: The city name to get weather for
-        units: Temperature units (celsius or fahrenheit)
+        city (str): The name of the city for which to retrieve weather information.
+        unit (Literal["celsius", "fahrenheit"], optional): The unit of temperature to use. 
+            Defaults to "celsius". Can be "celsius" or "fahrenheit".
+
+    Returns:
+        dict: A dictionary containing the city, temperature, and unit.
     """
-    # Your implementation here
-    return {"temperature": 22, "units": units, "city": city}
+    # In a real application, this would call an external weather API
+    if city.lower() == "paris":
+        temperature = 22 if unit == "celsius" else 71.6
+    elif city.lower() == "london":
+        temperature = 15 if unit == "celsius" else 59.0
+    else:
+        temperature = "N/A"
+        
+    print(f"[Tool Call] get_weather(city='{city}', unit='{unit}')")
+    return {"city": city, "temperature": temperature, "unit": unit}
+
+@tools
+def send_email(recipient: str, subject: str, body: str, attachment_paths: list[str] = None):
+    """Sends an email to the specified recipient.
+
+    Args:
+        recipient (str): The email address of the recipient.
+        subject (str): The subject line of the email.
+        body (str): The main content of the email.
+        attachment_paths (list[str], optional): A list of file paths to attach to the email.
+            Defaults to None.
+    """
+    print(f"[Tool Call] Sending email to {recipient} with subject '{subject}'")
+    print(f"Body: {body}")
+    if attachment_paths:
+        print(f"Attachments: {', '.join(attachment_paths)}")
+    return {"status": "success", "message": f"Email sent to {recipient}"}
 ```
 
-The `@tools` decorator automatically:
-- Generates JSON schema from Python type hints
-- Extracts parameter descriptions from docstrings
-- Registers the tool in the global registry
-- Validates parameters against the schema
+### Method 2: The `Fn` Class
 
-### Method 2: Using the `Fn` Class Directly
+The `Fn` class provides a more explicit and programmatic way to define tools. This is particularly useful when:
 
-For more advanced use cases, you can create tools using the `Fn` class directly:
+-   You need to define a tool dynamically at runtime.
+-   The tool's logic is not encapsulated in a single, straightforward Python function.
+-   You are integrating with systems that provide tool definitions in a format that needs to be mapped to the SDK's `Fn` object.
+
+When using `Fn`, you manually provide the `name`, `description`, `parameters` (as a JSON schema dictionary), and the `function` (a callable Python object) that the tool will execute.
 
 ```python
 from HelpingAI.tools import Fn, get_registry
 
+# Define a calculator tool using the Fn class
 calculator_tool = Fn(
     name="calculate",
-    description="Perform a simple calculation",
+    description="Perform a simple arithmetic calculation (add, subtract, multiply, divide).",
     parameters={
         "type": "object",
         "properties": {
             "operation": {
                 "type": "string",
-                "description": "The operation to perform",
+                "description": "The arithmetic operation to perform.",
                 "enum": ["add", "subtract", "multiply", "divide"]
             },
-            "a": {"type": "number", "description": "First number"},
-            "b": {"type": "number", "description": "Second number"}
+            "a": {"type": "number", "description": "The first number for the operation."},
+            "b": {"type": "number", "description": "The second number for the operation."}
         },
         "required": ["operation", "a", "b"]
     },
@@ -67,253 +107,238 @@ calculator_tool = Fn(
         "subtract": a - b,
         "multiply": a * b,
         "divide": a / b if b != 0 else "Error: Division by zero"
-    }[operation]
+    }[operation] # The actual Python function to execute
 )
 
-# Register the tool manually
+# Register the tool with the global registry
 get_registry().register(calculator_tool)
+
+# Example of a tool that might not map directly to a simple function
+class DatabaseClient:
+    def query(self, sql_query: str) -> list[dict]:
+        print(f"[Tool Call] Executing SQL query: {sql_query}")
+        # Simulate database interaction
+        if "users" in sql_query.lower():
+            return [{"id": 1, "name": "Alice"}, {"id": 2, "name": "Bob"}]
+        return []
+
+db_client = DatabaseClient()
+
+database_query_tool = Fn(
+    name="execute_sql_query",
+    description="Executes a SQL query against the database and returns the results.",
+    parameters={
+        "type": "object",
+        "properties": {
+            "sql_query": {
+                "type": "string",
+                "description": "The SQL query string to execute."
+            }
+        },
+        "required": ["sql_query"]
+    },
+    function=db_client.query # Reference to a method of an instantiated class
+)
+get_registry().register(database_query_tool)
 ```
 
-## Using Tools with Chat Completions
+### Method 3: OpenAI JSON Schema
 
-Once you've created your tools, you can use them with chat completions:
+For maximum compatibility and integration with existing systems, you can define tools directly using the standard OpenAI JSON schema format. This is useful if you already have tool definitions in this format or if you prefer to define your schemas explicitly.
+
+When using this method, you typically don't provide a `function` callable directly within the tool definition itself. Instead, you would map the tool's `name` to your internal Python functions when handling the tool calls from the model.
+
+```python
+from typing import Dict, Any
+
+# Define a tool using the OpenAI JSON schema format
+openai_tools_list = [
+    {
+        "type": "function",
+        "function": {
+            "name": "get_stock_price",
+            "description": "Retrieves the current stock price for a given stock symbol.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "symbol": {
+                        "type": "string",
+                        "description": "The stock ticker symbol (e.g., GOOG, AAPL)."
+                    }
+                },
+                "required": ["symbol"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_current_time",
+            "description": "Gets the current time in a specified timezone.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "timezone": {
+                        "type": "string",
+                        "description": "The timezone to get the current time for (e.g., 'America/New_York', 'Europe/London')."
+                    }
+                },
+                "required": ["timezone"]
+            }
+        }
+    }
+]
+
+# You would typically have a mapping for these tools to actual functions
+def _get_stock_price_impl(symbol: str) -> Dict[str, Any]:
+    print(f"[Tool Call] get_stock_price(symbol='{symbol}')")
+    # Simulate fetching stock price
+    prices = {"GOOG": 170.00, "AAPL": 180.50}
+    return {"symbol": symbol, "price": prices.get(symbol.upper(), "N/A")}
+
+def _get_current_time_impl(timezone: str) -> Dict[str, Any]:
+    import datetime
+    import pytz
+    print(f"[Tool Call] get_current_time(timezone='{timezone}')")
+    try:
+        tz = pytz.timezone(timezone)
+        current_time = datetime.datetime.now(tz).strftime("%Y-%m-%d %H:%M:%S %Z%z")
+        return {"timezone": timezone, "current_time": current_time}
+    except pytz.UnknownTimeZoneError:
+        return {"error": "Unknown timezone", "timezone": timezone}
+
+# This mapping would be used when handling tool_calls from the model
+openai_tool_implementations = {
+    "get_stock_price": _get_stock_price_impl,
+    "get_current_time": _get_current_time_impl,
+}
+```
+
+## Using Tools
+
+Once you have defined your tools using any of the methods above, you can make them available to the AI model by passing them to the `tools` parameter of the `client.chat.completions.create()` method. The SDK automatically handles the conversion of different tool formats into a unified structure that the model can understand.
+
+You can combine tools defined by different methods into a single list. The `get_tools()` function is particularly useful as it retrieves all tools registered via the `@tools` decorator and `Fn` class.
 
 ```python
 from HelpingAI import HAI
 from HelpingAI.tools import get_tools
+import json # Needed for handling tool arguments and results
 
-hai = HAI()
-response = hai.chat.completions.create(
+client = HAI()
+
+# Retrieve tools defined with @tools and Fn class
+registered_tools = get_tools()
+
+# Combine with tools defined using OpenAI JSON schema
+# (assuming openai_tools_list is defined as in Method 3 example)
+all_available_tools = registered_tools + openai_tools_list
+
+# Example conversation where the model might use tools
+messages = [
+    {"role": "user", "content": "What's the weather in London and the current stock price of AAPL? Also, what's the time in Europe/London?"}
+]
+
+response = client.chat.completions.create(
     model="Dhanishtha-2.0-preview",
-    messages=[{"role": "user", "content": "What's the weather in Paris?"}],
-    tools=get_tools(),  # Include all registered tools
-    tool_choice="auto"  # Let the model decide when to use tools
+    messages=messages,
+    tools=all_available_tools, # Pass the combined list of tools
+    tool_choice="auto" # Let the model decide whether to call a tool
 )
+
+print(f"Initial model response: {response.choices[0].message.content}")
 ```
 
 ## Handling Tool Calls
 
-When the model decides to use a tool, you need to handle the tool call:
+When the AI model determines that a tool is necessary to fulfill a user's request, it will generate a `tool_calls` object within its response message. Your application is then responsible for executing these tool calls and providing the results back to the model in a subsequent turn of the conversation.
+
+Here's a typical workflow for handling tool calls:
+
+1.  **Check for `tool_calls`**: After receiving a response from `client.chat.completions.create()`, inspect `response.choices[0].message.tool_calls`.
+2.  **Execute Tools**: If `tool_calls` exist, iterate through them. For each `tool_call`:
+    *   Extract the `function.name` and `function.arguments`.
+    *   Parse the `function.arguments` (which are a JSON string) into a Python dictionary.
+    *   Execute the corresponding tool using `client.call(function_name, function_args)`.
+3.  **Create Tool Response Messages**: Format the results of each tool execution into a `tool` role message. This message includes the `tool_call_id` (to link it back to the original tool call) and the `content` (the tool's output).
+4.  **Continue Conversation**: Send the original user message, the model's tool call message, and the new tool response messages back to the model in a new `client.chat.completions.create()` call. This allows the model to use the tool's output to generate a final, informed response.
 
 ```python
-import json
-from HelpingAI.tools import get_registry
+# ... (assuming client, messages, response, registered_tools, openai_tool_implementations are defined from previous examples) ...
 
-if response.choices[0].message.tool_calls:
-    tool_call = response.choices[0].message.tool_calls[0]
-    function_name = tool_call.function.name
-    function_args = json.loads(tool_call.function.arguments)
-    
-    # Get the tool from registry
-    tool = get_registry().get_tool(function_name)
-    
-    # Execute the tool
-    result = tool.call(function_args)
-    
-    # Continue the conversation with the tool result
-    follow_up = hai.chat.completions.create(
-        model="Dhanishtha-2.0-preview",
-        messages=[
-            {"role": "user", "content": "What's the weather in Paris?"},
-            response.choices[0].message,
-            {
+message = response.choices[0].message
+
+# Check if the model made any tool calls
+if message.tool_calls:
+    print("\nModel wants to call tools:")
+    tool_messages_for_follow_up = [] # To store tool outputs for the next API call
+
+    for tool_call in message.tool_calls:
+        function_name = tool_call.function.name
+        function_args_str = tool_call.function.arguments
+        
+        print(f"- Tool Name: {function_name}")
+        print(f"  Arguments: {function_args_str}")
+
+        try:
+            # Parse the arguments from JSON string to Python dictionary
+            function_args = json.loads(function_args_str)
+            
+            result = None
+            # Execute the tool based on its name
+            if function_name in registered_tools.keys(): # Check tools defined with @tools or Fn
+                # Use client.call() for tools registered with the client
+                result = client.call(function_name, function_args)
+            elif function_name in openai_tool_implementations: # Check tools defined with OpenAI JSON schema
+                # For OpenAI JSON schema tools, call their direct Python implementation
+                result = openai_tool_implementations[function_name](**function_args)
+            else:
+                print(f"  Error: Tool '{function_name}' not found in any registry.")
+                result = {"error": f"Tool '{function_name}' not found."}
+
+            print(f"  Tool Result: {result}")
+            
+            # Create a tool message to send back to the model
+            tool_messages_for_follow_up.append({
+                "role": "tool",
+                "tool_call_id": tool_call.id, # Important: Link to the original tool call
+                "name": function_name,
+                "content": json.dumps(result) # Tool output must be a string
+            })
+
+        except json.JSONDecodeError:
+            print(f"  Error: Invalid JSON arguments for tool '{function_name}': {function_args_str}")
+            tool_messages_for_follow_up.append({
                 "role": "tool",
                 "tool_call_id": tool_call.id,
                 "name": function_name,
-                "content": json.dumps(result)
-            }
-        ]
+                "content": f"Error: Invalid JSON arguments: {function_args_str}"
+            })
+        except Exception as e:
+            print(f"  Error executing tool '{function_name}': {e}")
+            tool_messages_for_follow_up.append({
+                "role": "tool",
+                "tool_call_id": tool_call.id,
+                "name": function_name,
+                "content": f"Error executing tool: {e}"
+            })
+
+    # Continue the conversation with the tool results
+    # The messages list should include:
+    # 1. Original user message
+    # 2. Model's response with tool_calls
+    # 3. Tool outputs
+    follow_up_response = client.chat.completions.create(
+        model="Dhanishtha-2.0-preview",
+        messages=messages + [message] + tool_messages_for_follow_up,
+        tools=all_available_tools, # Tools should still be available for the model
+        tool_choice="auto"
     )
-    
-    print(follow_up.choices[0].message.content)
-```
 
-## Advanced Features
+    print("\nFinal model response after tool execution:")
+    print(follow_up_response.choices[0].message.content)
 
-### Type System Support
-
-The `@tools` decorator supports various Python type hints:
-
-```python
-from typing import List, Optional, Union, Literal
-from enum import Enum
-
-class Priority(Enum):
-    LOW = "low"
-    MEDIUM = "medium"
-    HIGH = "high"
-
-@tools
-def create_task(
-    title: str,
-    description: Optional[str] = None,
-    priority: Priority = Priority.MEDIUM,
-    tags: List[str] = None,
-    due_date: Union[str, None] = None,
-    status: Literal["todo", "in_progress", "done"] = "todo"
-) -> dict:
-    """Create a new task."""
-    # Implementation
-    return {"title": title, "status": "created"}
-```
-
-### Tool Registry Management
-
-The tool registry provides methods for managing tools:
-
-```python
-from HelpingAI.tools import get_registry, get_tools, clear_registry
-
-# Get the registry
-registry = get_registry()
-
-# List all tool names
-tool_names = registry.list_tool_names()
-print(f"Available tools: {tool_names}")
-
-# Get a specific tool
-weather_tool = registry.get_tool("get_weather")
-
-# Check if a tool exists
-if registry.has_tool("get_weather"):
-    print("Weather tool is available")
-
-# Get the total number of tools
-tool_count = registry.size()
-print(f"Total tools: {tool_count}")
-
-# Get specific tools by name
-weather_tools = get_tools(["get_weather", "get_forecast"])
-
-# Clear all tools (mainly for testing)
-clear_registry()
-```
-
-### Combining with Legacy Tools
-
-You can combine your tools with existing OpenAI-format tools:
-
-```python
-from HelpingAI.tools import merge_tool_lists, get_tools
-
-# Existing OpenAI-format tools
-legacy_tools = [{
-    "type": "function",
-    "function": {
-        "name": "search_web",
-        "description": "Search the web",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "query": {"type": "string"}
-            },
-            "required": ["query"]
-        }
-    }
-}]
-
-# Combine with your tools
-combined_tools = merge_tool_lists(
-    legacy_tools,
-    get_tools()
-)
-
-# Use in chat completion
-response = hai.chat.completions.create(
-    model="Dhanishtha-2.0-preview",
-    messages=[{"role": "user", "content": "Help me with this"}],
-    tools=combined_tools
-)
-```
-
-### Error Handling
-
-Handle errors that might occur during tool execution:
-
-```python
-from HelpingAI.tools import ToolExecutionError, SchemaValidationError
-
-try:
-    result = tool.call(arguments)
-except SchemaValidationError as e:
-    print(f"Invalid arguments: {e}")
-    # Handle invalid arguments
-except ToolExecutionError as e:
-    print(f"Tool execution failed: {e}")
-    # Handle execution failure
-```
-
-## Best Practices
-
-1. **Keep tools focused**: Each tool should do one thing well
-2. **Provide clear descriptions**: Make sure your tool and parameter descriptions are clear
-3. **Handle errors gracefully**: Implement proper error handling
-4. **Use appropriate types**: Use the right type hints for your parameters
-5. **Test your tools**: Make sure your tools work as expected before using them with AI
-6. **Consider security**: Be careful about what your tools can do
-7. **Use docstrings**: Provide detailed docstrings for your tools and parameters
-
-## Example: Multi-turn Conversation with Tools
-
-```python
-import json
-from HelpingAI import HAI
-from HelpingAI.tools import tools, get_tools, get_registry
-
-@tools
-def get_weather(city: str) -> dict:
-    """Get weather information for a city."""
-    return {"temperature": 22, "city": city}
-
-@tools
-def get_time(timezone: str = "UTC") -> dict:
-    """Get current time in a timezone."""
-    import datetime
-    return {"time": datetime.datetime.now().isoformat(), "timezone": timezone}
-
-# Initialize client
-hai = HAI()
-
-# Start conversation
-messages = [
-    {"role": "system", "content": "You are a helpful assistant with access to tools."},
-    {"role": "user", "content": "What's the weather in Paris and what time is it there?"}
-]
-
-# First turn
-response = hai.chat.completions.create(
-    model="Dhanishtha-2.0-preview",
-    messages=messages,
-    tools=get_tools(),
-    tool_choice="auto"
-)
-
-# Add assistant response to messages
-messages.append(response.choices[0].message)
-
-# Handle tool calls
-if response.choices[0].message.tool_calls:
-    for tool_call in response.choices[0].message.tool_calls:
-        function_name = tool_call.function.name
-        function_args = json.loads(tool_call.function.arguments)
-        
-        # Execute the tool
-        tool = get_registry().get_tool(function_name)
-        result = tool.call(function_args)
-        
-        # Add tool response to messages
-        messages.append({
-            "role": "tool",
-            "tool_call_id": tool_call.id,
-            "name": function_name,
-            "content": json.dumps(result)
-        })
-
-# Get final response
-final_response = hai.chat.completions.create(
-    model="Dhanishtha-2.0-preview",
-    messages=messages
-)
-
-print(final_response.choices[0].message.content)
+else:
+    print("\nModel did not call any tools.")
+    print(f"Model's response: {message.content}")
 ```
