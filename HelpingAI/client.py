@@ -199,136 +199,6 @@ class ChatCompletions:
     def __init__(self, client: "HAI") -> None:
         self._client: "HAI" = client
 
-    def _filter_think_ser_blocks(self, text: Optional[str]) -> Optional[str]:
-        """Remove <think>...</think> and <ser>...</ser> blocks from text and clean up excessive line gaps."""
-        if not text:
-            return text
-        import re
-        
-        # Remove think and ser blocks
-        text = re.sub(r"<think>[\s\S]*?</think>", "", text)
-        text = re.sub(r"<ser>[\s\S]*?</ser>", "", text)
-        
-        # Fix broken words that may have been split across lines
-        text = re.sub(r"(\w)-\s*\n\s*(\w)", r"\1\2", text)
-        
-        # Remove excessive empty lines (more than 2 consecutive newlines become 2)
-        text = re.sub(r"\n{3,}", "\n\n", text)
-        
-        # Remove extra spaces that might be left behind
-        text = re.sub(r" {2,}", " ", text)
-        text = text.strip()
-
-        return text
-
-    def _filter_completion(self, completion: ChatCompletion) -> ChatCompletion:
-        """Return a ChatCompletion with <think> and <ser> blocks removed from message content."""
-        filtered_choices = []
-        for choice in completion.choices:
-            message = choice.message
-            filtered_content = self._filter_think_ser_blocks(message.content)
-            filtered_message = ChatCompletionMessage(
-                role=message.role,
-                content=filtered_content,
-                function_call=message.function_call,
-                tool_calls=message.tool_calls
-            )
-            filtered_choice = Choice(
-                index=choice.index,
-                message=filtered_message,
-                finish_reason=choice.finish_reason,
-                logprobs=choice.logprobs
-            )
-            filtered_choices.append(filtered_choice)
-        return ChatCompletion(
-            id=completion.id,
-            created=completion.created,
-            model=completion.model,
-            choices=filtered_choices,
-            system_fingerprint=completion.system_fingerprint,            
-            usage=completion.usage
-        )
-
-    def _filter_stream_chunk(self, chunk: ChatCompletionChunk, state: Dict[str, bool]) -> ChatCompletionChunk:
-        """Return a ChatCompletionChunk with <think> and <ser> blocks removed from delta content."""
-        filtered_choices = []
-        for choice in chunk.choices:
-            delta = choice.delta
-            content = delta.content
-            filtered_content = self._filter_streaming_content(content, state) if content else content
-            
-            filtered_delta = ChoiceDelta(
-                content=filtered_content,
-                function_call=delta.function_call,
-                role=delta.role,
-                tool_calls=delta.tool_calls
-            )
-            filtered_choice = Choice(
-                index=choice.index,
-                delta=filtered_delta,
-                finish_reason=choice.finish_reason,
-                logprobs=choice.logprobs
-            )
-            filtered_choices.append(filtered_choice)
-        return ChatCompletionChunk(
-            id=chunk.id,
-            created=chunk.created,
-            model=chunk.model,
-            choices=filtered_choices,
-            system_fingerprint=chunk.system_fingerprint
-        )
-
-    def _filter_streaming_content(self, content: str, state: Dict[str, bool]) -> Optional[str]:
-        """Filter streaming content based on reasoning state, similar to the webscout example."""
-        if not content:
-            return content
-        
-        result = ""
-        i = 0
-        while i < len(content):
-            # Check for opening tags - including partial matches at chunk boundaries
-            remaining = content[i:]
-            
-            if remaining.startswith("<think>"):
-                state["is_reasoning"] = True
-                i += 7
-                continue
-            elif remaining.startswith("</think>"):
-                state["is_reasoning"] = False
-                i += 8
-                continue
-            elif remaining.startswith("<ser>"):
-                state["is_ser"] = True
-                i += 5
-                continue
-            elif remaining.startswith("</ser>"):
-                state["is_ser"] = False
-                i += 6
-                continue
-            # Handle partial tag matches that might be split across chunks
-            elif remaining.startswith("<think") or remaining.startswith("<ser") or remaining.startswith("</think") or remaining.startswith("</ser"):
-                # If we find a partial tag, assume we're entering a reasoning/ser block
-                if remaining.startswith("<think") or remaining.startswith("<ser"):
-                    if remaining.startswith("<think"):
-                        state["is_reasoning"] = True
-                    else:
-                        state["is_ser"] = True
-                else:  # closing tags
-                    if remaining.startswith("</think"):
-                        state["is_reasoning"] = False
-                    else:
-                        state["is_ser"] = False
-                # Skip the rest of this chunk to avoid partial content
-                break
-                
-            # If we're not in reasoning or ser mode, add the character
-            if not state["is_reasoning"] and not state["is_ser"]:
-                result += content[i]
-            
-            i += 1
-        
-        # Return None if result is empty or whitespace-only to avoid sending empty chunks
-        return result.strip() if result.strip() else None
 
     def _convert_messages_to_dicts(self, messages: List[Union[Dict[str, Any], BaseModel]]) -> List[Dict[str, Any]]:
         """Convert messages to dictionaries, handling BaseModel objects automatically."""
@@ -447,7 +317,7 @@ class ChatCompletions:
                 - List[Fn]: Fn objects from @tools decorator
                 - str: Category name to get tools from registry
             tool_choice: Tool selection strategy.
-            hide_think: If True, filter out <think> and <ser> blocks from the output (streaming or not).
+            hide_think: If True, the API will filter out <think> and <ser> blocks from the output (handled server-side).
         Returns:
             ChatCompletion or an iterator of ChatCompletionChunk (OpenAI-compatible objects).
         Raises:
@@ -480,6 +350,7 @@ class ChatCompletions:
             "seed": seed,
             "tools": converted_tools,
             "tool_choice": tool_choice if converted_tools else None,
+            "hideThink": hide_think,
         }
         json_data.update({k: v for k, v in optional_params.items() if v is not None})
 
@@ -491,29 +362,9 @@ class ChatCompletions:
         )
 
         if stream:
-            stream_iter = self._handle_stream_response(cast(requests.Response, response))
-            if hide_think:
-                return self._create_filtered_stream_generator(stream_iter)
-            return stream_iter
-        completion = self._handle_response(cast(Dict[str, Any], response))
-        if hide_think:
-            return self._filter_completion(completion)
-        return completion
+            return self._handle_stream_response(cast(requests.Response, response))
+        return self._handle_response(cast(Dict[str, Any], response))
 
-    def _hide_think_from_completion(self, completion: ChatCompletion) -> str:
-        # Deprecated: no longer used, kept for backward compatibility if needed
-        def remove_blocks(text: Optional[str]) -> str:
-            if not text:
-                return ""
-            import re
-            text = re.sub(r"<think>[\s\S]*?</think>", "", text)
-            text = re.sub(r"<ser>[\s\S]*?</ser>", "", text)
-            return text
-        visible = []
-        for choice in completion.choices:
-            if choice.message and choice.message.content:
-                visible.append(remove_blocks(choice.message.content))
-        return "\n".join(visible)
 
     def _convert_tools_parameter(
         self,
@@ -828,122 +679,6 @@ class ChatCompletions:
                 except Exception as e:
                     raise HAIError(f"Error parsing stream: {str(e)}")
 
-    def _create_filtered_stream_generator(self, stream_iter: Iterator[ChatCompletionChunk]) -> Iterator[ChatCompletionChunk]:
-        """Create a generator that filters streaming chunks, cleans up whitespace, and handles partial tags."""
-        is_in_think = False
-        is_in_ser = False
-        buffer = ""
-        
-        consecutive_newlines = 0
-        last_char_was_space = False
-        stream_started = False
-
-        for chunk in stream_iter:
-            new_choices = []
-            should_yield_chunk = False
-
-            for choice in chunk.choices:
-                if choice.delta and choice.delta.content:
-                    buffer += choice.delta.content
-                    output_content = ""
-                    processed_len = 0
-
-                    while processed_len < len(buffer):
-                        remaining = buffer[processed_len:]
-
-                        if is_in_think:
-                            if remaining.startswith("</think>"):
-                                is_in_think = False
-                                processed_len += 8
-                                last_char_was_space = True
-                                continue
-                            if "</think>".startswith(remaining):
-                                break
-                            processed_len += 1
-                            continue
-
-                        if is_in_ser:
-                            if remaining.startswith("</ser>"):
-                                is_in_ser = False
-                                processed_len += 6
-                                last_char_was_space = True
-                                continue
-                            if "</ser>".startswith(remaining):
-                                break
-                            processed_len += 1
-                            continue
-
-                        if remaining.startswith("<think>"):
-                            is_in_think = True
-                            processed_len += 7
-                            continue
-                        
-                        if remaining.startswith("<ser>"):
-                            is_in_ser = True
-                            processed_len += 5
-                            continue
-
-                        if "<think>".startswith(remaining) or "<ser>".startswith(remaining):
-                            break
-
-                        char = buffer[processed_len]
-                        
-                        if not stream_started and char.isspace():
-                            processed_len += 1
-                            continue
-                        stream_started = True
-
-                        if char == '\n':
-                            consecutive_newlines += 1
-                            if consecutive_newlines <= 2:
-                                output_content += char
-                            last_char_was_space = False
-                        elif char.isspace():
-                            if not last_char_was_space:
-                                output_content += ' '
-                            last_char_was_space = True
-                        else:
-                            consecutive_newlines = 0
-                            last_char_was_space = False
-                            output_content += char
-                        
-                        processed_len += 1
-
-                    buffer = buffer[processed_len:]
-
-                    if output_content:
-                        should_yield_chunk = True
-                        new_delta = ChoiceDelta(
-                            content=output_content,
-                            role=choice.delta.role,
-                            function_call=choice.delta.function_call,
-                            tool_calls=choice.delta.tool_calls
-                        )
-                        new_choice = Choice(
-                            index=choice.index,
-                            delta=new_delta,
-                            finish_reason=choice.finish_reason,
-                            logprobs=choice.logprobs
-                        )
-                        new_choices.append(new_choice)
-                    elif choice.finish_reason:
-                        should_yield_chunk = True
-                        new_delta = ChoiceDelta(content=None, role=choice.delta.role, function_call=choice.delta.function_call, tool_calls=choice.delta.tool_calls)
-                        new_choice = Choice(index=choice.index, delta=new_delta, finish_reason=choice.finish_reason, logprobs=choice.logprobs)
-                        new_choices.append(new_choice)
-
-                else:
-                    should_yield_chunk = True
-                    new_choices.append(choice)
-            
-            if should_yield_chunk:
-                yield ChatCompletionChunk(
-                    id=chunk.id,
-                    created=chunk.created,
-                    model=chunk.model,
-                    choices=new_choices,
-                    system_fingerprint=chunk.system_fingerprint
-                )
 
 class Chat:
     """Chat API interface for the HelpingAI client.
