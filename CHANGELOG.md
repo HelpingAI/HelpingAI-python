@@ -2,6 +2,16 @@
 
 All notable changes to the HelpingAI Python SDK will be documented in this file.
 
+## [1.2.1] - 2025-07-29
+
+### Changed
+- **🧹 Major Refactor**: Split `HelpingAI/client.py` into modular submodules: `base.py`, `completions.py`, `chat.py`, and `main.py` under `HelpingAI/client/` for improved maintainability and clarity
+- **🔄 Backward Compatibility**: The original `client.py` now re-exports all main client classes for seamless transition
+- **🧩 Internal Structure**: All client logic and classes are now organized in dedicated files, reducing file size and improving code navigation
+
+### Enhanced
+- **🧠 Simplified Think Logic**: Simplified complex `hide_think` parameter logic as it is now internally handled by HelpingAI's backend
+
 ## [1.2.0] - 2025-07-20
 
 ### Added
