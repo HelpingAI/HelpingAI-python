@@ -165,6 +165,94 @@ Retrieves detailed information about a specific AI model by its unique identifie
 - `APIError`: If there is an issue communicating with the HelpingAI API.
 - `AuthenticationError`: If the provided API key is invalid or missing.
 
+## Built-in Tools
+
+The HelpingAI SDK includes powerful built-in tools that provide essential functionality for AI applications. These tools are automatically available and can be used in chat completions or called directly.
+
+### `code_interpreter`
+
+The [`code_interpreter`](HelpingAI/tools/builtin_tools/code_interpreter.py:26) tool provides Python code execution in a secure sandboxed environment with comprehensive data science capabilities.
+
+**Features:**
+
+- **Secure Sandbox**: Executes Python code in an isolated environment with timeout protection (default: 30 seconds)
+- **Data Science Libraries**: Automatic imports for popular libraries including [`numpy`](HelpingAI/tools/builtin_tools/code_interpreter.py:169), [`pandas`](HelpingAI/tools/builtin_tools/code_interpreter.py:174), [`matplotlib`](HelpingAI/tools/builtin_tools/code_interpreter.py:179), and [`seaborn`](HelpingAI/tools/builtin_tools/code_interpreter.py:188)
+- **Plot Generation**: Automatic plot saving with [`matplotlib`](HelpingAI/tools/builtin_tools/code_interpreter.py:179) integration and non-interactive backend
+- **File Handling**: Working directory management for file operations and data persistence
+- **Error Handling**: Comprehensive error reporting with timeout protection
+
+**Parameters:**
+
+- `code` (str, required): Python code to execute in the sandbox environment
+
+**Configuration Options:**
+
+- `timeout` (int, optional): Execution timeout in seconds (default: 30)
+- `work_dir` (str, optional): Working directory for code execution
+
+**Usage Examples:**
+
+```python
+# Using in chat completions
+response = client.chat.completions.create(
+    model="Dhanishtha-2.0-preview",
+    messages=[{"role": "user", "content": "Calculate the mean of [1, 2, 3, 4, 5] using numpy"}],
+    tools=["code_interpreter"]
+)
+
+# Direct tool calling
+result = client.call("code_interpreter", {
+    "code": """
+import numpy as np
+data = [1, 2, 3, 4, 5]
+mean_value = np.mean(data)
+print(f"Mean: {mean_value}")
+"""
+})
+```
+
+### `web_search`
+
+The [`web_search`](HelpingAI/tools/builtin_tools/web_search.py:17) tool provides real-time web search functionality using the Snapzion Search API.
+
+**Features:**
+
+- **Real-time Search**: Access to current web information with high-quality results
+- **Comprehensive Results**: Returns titles, snippets, URLs, source information, and search positions
+- **Configurable Limits**: Adjustable result count (1-10 results)
+- **Structured Output**: Well-formatted results with metadata for easy processing
+
+**Parameters:**
+
+- `query` (str, required): Search query to look up on the web
+- `max_results` (int, optional): Maximum number of search results to return (default: 5, max: 10)
+
+**Usage Examples:**
+
+```python
+# Using in chat completions
+response = client.chat.completions.create(
+    model="Dhanishtha-2.0-preview",
+    messages=[{"role": "user", "content": "What's the latest news about AI developments?"}],
+    tools=["web_search"]
+)
+
+# Direct tool calling
+search_results = client.call("web_search", {
+    "query": "latest AI developments 2024",
+    "max_results": 3
+})
+```
+
+**Result Format:**
+
+The web search tool returns formatted results including:
+- **Title**: Page title from search results
+- **Snippet**: Brief description or excerpt from the page
+- **URL**: Direct link to the source page
+- **Source**: Domain or source identifier
+- **Position**: Search result ranking position
+
 ## Tool Calling
 
 The HelpingAI SDK provides a powerful and flexible framework for defining and using tools with the Chat Completions API. This allows the AI models to interact with external functions, services, and data sources.
@@ -175,13 +263,42 @@ The HelpingAI SDK provides a powerful and flexible framework for defining and us
 def call(self, tool_name: str, arguments: Union[Dict[str, Any], str, set], tools: Optional[Union[List[Dict[str, Any]], List, str]] = None) -> Any:
 ```
 
-Directly calls a registered tool by its name, executing its associated function with the provided arguments. This method is useful for programmatically invoking tools outside of the chat completion flow.
+Directly calls a registered tool by its name, executing its associated function with the provided arguments. This method supports an enhanced workflow where tools from recent [`chat.completions.create()`](HelpingAI/client/completions.py:110) calls are automatically cached and available for direct calling.
+
+**Enhanced Tool Workflow:**
+
+The [`client.call()`](HelpingAI/client/main.py:107) method features automatic tool configuration caching that enables seamless workflows:
+
+1. **Automatic Caching**: Tools used in [`chat.completions.create()`](HelpingAI/client/completions.py:110) are automatically cached
+2. **Direct Calling**: After a chat completion with tools, you can immediately call those tools without reconfiguration
+3. **Fallback Priority**: Uses explicitly configured tools first, then falls back to cached tools from recent chat calls
 
 **Parameters:**
 
-- `tool_name` (str, required): The unique name of the tool to be called (e.g., `"get_weather"`, `"code_interpreter"`).
+- `tool_name` (str, required): The unique name of the tool to be called (e.g., `"get_weather"`, `"code_interpreter"`, `"web_search"`).
 - `arguments` (Union[Dict[str, Any], str, set], required): The arguments to pass to the tool's function. This can be a dictionary, a JSON string, or in some cases, a set (though a warning will be issued for sets, recommending dictionary or JSON string).
 - `tools` (Optional[Union[List[Dict[str, Any]], List, str]], optional): An optional parameter to configure tools specifically for this `call` invocation. If provided, these tools will be registered and available for this call. This is useful for one-off tool configurations without affecting the client's global tool settings.
+
+**Enhanced Workflow Examples:**
+
+```python
+# Method 1: Explicit configuration then calling
+client.configure_tools(["code_interpreter", "web_search"])
+result = client.call("code_interpreter", {"code": "print('Hello World')"})
+
+# Method 2: Automatic caching workflow (recommended)
+response = client.chat.completions.create(
+    model="Dhanishtha-2.0-preview",
+    messages=[{"role": "user", "content": "Search for Python tutorials"}],
+    tools=["web_search", "code_interpreter"]
+)
+
+# Tools are now automatically cached - can call directly
+search_result = client.call("web_search", {
+    "query": "Python programming tutorials 2024",
+    "max_results": 5
+})
+```
 
 **Returns:**
 
@@ -189,7 +306,7 @@ Directly calls a registered tool by its name, executing its associated function 
 
 **Raises:**
 
-- `ValueError`: If the specified `tool_name` is not found, or if the `arguments` are invalid or cannot be processed.
+- `ValueError`: If the specified `tool_name` is not found, or if the `arguments` are invalid or cannot be processed. Provides helpful guidance on tool configuration.
 - `ToolExecutionError`: If an error occurs during the execution of the tool's function.
 
 ### `client.configure_tools(...)`
@@ -223,9 +340,182 @@ client.configure_tools([
 ])
 ```
 
+## Chat Completions Helper Methods
+
+The Chat Completions API includes several helper methods that simplify working with tool calls and message creation.
+
+### `client.chat.completions.create_assistant_message(...)`
+
+```python
+def create_assistant_message(
+    self,
+    content: Optional[str] = None,
+    tool_calls: Optional[List[Union[ToolCall, Dict[str, Any]]]] = None,
+    function_call: Optional[Union[FunctionCall, Dict[str, Any]]] = None
+) -> ChatCompletionMessage:
+```
+
+Creates an assistant message with automatic tool call conversion, making it easy to create properly formatted messages for conversation history.
+
+**Parameters:**
+
+- `content` (Optional[str]): The message content
+- `tool_calls` (Optional[List[Union[ToolCall, Dict[str, Any]]]]): List of tool calls (ToolCall objects or dicts)
+- `function_call` (Optional[Union[FunctionCall, Dict[str, Any]]]): Function call (FunctionCall object or dict)
+
+**Returns:**
+
+- `ChatCompletionMessage`: Properly formatted message object compatible with OpenAI format
+
+### `client.chat.completions.execute_tool_calls(...)`
+
+```python
+def execute_tool_calls(
+    self,
+    message: ChatCompletionMessage,
+    registry=None
+) -> List[Dict[str, Any]]:
+```
+
+Executes all tool calls in a message and returns structured results, enabling automated tool execution workflows.
+
+**Parameters:**
+
+- `message` (ChatCompletionMessage, required): Message containing tool calls to execute
+- `registry` (optional): Tool registry to use (uses global registry if None)
+
+**Returns:**
+
+- `List[Dict[str, Any]]`: List of execution results with format:
+  ```python
+  [{"tool_call_id": str, "result": Any, "error": str}]
+  ```
+
+### `client.chat.completions.create_tool_response_messages(...)`
+
+```python
+def create_tool_response_messages(
+    self,
+    execution_results: List[Dict[str, Any]]
+) -> List[Dict[str, Any]]:
+```
+
+Creates tool response messages from execution results, automatically formatting them for conversation history.
+
+**Parameters:**
+
+- `execution_results` (List[Dict[str, Any]], required): Results from [`execute_tool_calls()`](HelpingAI/client/completions.py:305)
+
+**Returns:**
+
+- `List[Dict[str, Any]]`: List of properly formatted tool response messages
+
+**Complete Tool Execution Workflow Example:**
+
+```python
+# 1. Create chat completion with tools
+response = client.chat.completions.create(
+    model="Dhanishtha-2.0-preview",
+    messages=[{"role": "user", "content": "Search for Python tutorials and analyze the results"}],
+    tools=["web_search", "code_interpreter"]
+)
+
+# 2. Check if the model made tool calls
+assistant_message = response.choices[0].message
+if assistant_message.tool_calls:
+    # 3. Execute the tool calls
+    execution_results = client.chat.completions.execute_tool_calls(assistant_message)
+    
+    # 4. Create tool response messages
+    tool_responses = client.chat.completions.create_tool_response_messages(execution_results)
+    
+    # 5. Continue the conversation with tool results
+    messages = [
+        {"role": "user", "content": "Search for Python tutorials and analyze the results"},
+        assistant_message.to_dict(),  # Convert to dict for API
+        *tool_responses  # Add tool responses
+    ]
+    
+    # 6. Get final response with tool results
+    final_response = client.chat.completions.create(
+        model="Dhanishtha-2.0-preview",
+        messages=messages
+    )
+```
+
 ## Response Objects
 
-This section provides detailed descriptions of the data structures returned by the HelpingAI API.
+This section provides detailed descriptions of the data structures returned by the HelpingAI API. All response objects inherit from [`BaseModel`](HelpingAI/base_models.py:27), which provides enhanced functionality including dictionary-like access patterns and Pydantic compatibility.
+
+### BaseModel Enhancements
+
+All response objects in the HelpingAI SDK inherit from [`BaseModel`](HelpingAI/base_models.py:27), providing powerful features for data access and manipulation:
+
+**Dictionary-like Access Patterns:**
+
+```python
+# All response objects support dictionary-style access
+response = client.chat.completions.create(...)
+message = response.choices[0].message
+
+# Dictionary-style access
+content = message["content"]
+role = message["role"]
+
+# Check if key exists
+if "tool_calls" in message:
+    tool_calls = message["tool_calls"]
+
+# Get with default value
+content = message.get("content", "No content")
+
+# Iterate like a dictionary
+for key, value in message.items():
+    print(f"{key}: {value}")
+
+# Get all keys, values
+keys = list(message.keys())
+values = list(message.values())
+```
+
+**Pydantic Compatibility Methods:**
+
+```python
+# Convert to dictionary (Pydantic-style)
+message_dict = message.model_dump()
+
+# Convert to JSON string (Pydantic-style)
+message_json = message.model_dump_json()
+
+# Create from dictionary (Pydantic-style)
+new_message = ChatCompletionMessage.model_validate({
+    "role": "assistant",
+    "content": "Hello!"
+})
+
+# Standard methods also available
+message_dict = message.to_dict()
+message_json = message.json()
+```
+
+**Enhanced JSON Serialization:**
+
+```python
+import json
+from HelpingAI.base_models import json_dumps
+
+# Automatic BaseModel handling in JSON serialization
+data = {
+    "message": message,
+    "choices": response.choices
+}
+
+# This automatically converts BaseModel objects
+json_string = json_dumps(data)
+
+# Or use the built-in json() method
+json_string = response.json()
+```
 
 ### `ChatCompletion`
 
@@ -322,7 +612,7 @@ Represents a function call generated by the model. This is part of the deprecate
 
 ### `ToolFunction`
 
-Represents the function details within a `ToolCall` object.
+Represents the function details within a `ToolCall` object with enhanced execution capabilities.
 
 **Attributes:**
 
@@ -331,9 +621,48 @@ Represents the function details within a `ToolCall` object.
 
 **Methods:**
 
-- `get_parsed_arguments() -> Dict[str, Any]`: Parses the `arguments` JSON string into a Python dictionary. Raises `json.JSONDecodeError` if the arguments are not valid JSON.
-- `call_with_registry(registry=None) -> Any`: Executes the function using a tool registry lookup. If `registry` is `None`, it uses the global tool registry. Raises an exception if the tool is not found or execution fails.
-- `execute(registry=None) -> Any`: Alias for `call_with_registry`.
+- [`get_parsed_arguments()`](HelpingAI/base_models.py:123) `-> Dict[str, Any]`: Parses the `arguments` JSON string into a Python dictionary. Raises `ValueError` if the arguments are not valid JSON.
+
+  ```python
+  tool_call = response.choices[0].message.tool_calls[0]
+  args = tool_call.function.get_parsed_arguments()
+  print(f"Tool: {tool_call.function.name}, Args: {args}")
+  ```
+
+- [`call_with_registry(registry=None)`](HelpingAI/base_models.py:137) `-> Any`: Executes the function using a tool registry lookup. If `registry` is `None`, it uses the global tool registry. Raises an exception if the tool is not found or execution fails.
+
+  ```python
+  # Execute tool call using registry
+  result = tool_call.function.call_with_registry()
+  
+  # Or with custom registry
+  from HelpingAI.tools import ToolRegistry
+  custom_registry = ToolRegistry()
+  result = tool_call.function.call_with_registry(custom_registry)
+  ```
+
+- [`execute(registry=None)`](HelpingAI/base_models.py:167) `-> Any`: Alias for [`call_with_registry()`](HelpingAI/base_models.py:137) for convenience.
+
+**Enhanced Tool Execution Example:**
+
+```python
+response = client.chat.completions.create(
+    model="Dhanishtha-2.0-preview",
+    messages=[{"role": "user", "content": "Calculate 2+2 using Python"}],
+    tools=["code_interpreter"]
+)
+
+# Get the tool call from response
+tool_call = response.choices[0].message.tool_calls[0]
+
+# Parse arguments
+args = tool_call.function.get_parsed_arguments()
+print(f"Calling {tool_call.function.name} with: {args}")
+
+# Execute the tool call
+result = tool_call.function.execute()
+print(f"Result: {result}")
+```
 
 ### `ToolCall`
 
@@ -448,35 +777,161 @@ These exceptions are specific to the tool calling functionality.
 
 ### `ToolExecutionError`
 
-Raised when an error occurs during the execution of a tool's function.
+Raised when an error occurs during the execution of a tool's function. This is a subclass of [`HAIError`](HelpingAI/error.py:7).
 
 **Attributes:**
 
 - `tool_name` (Optional[str]): The name of the tool that failed to execute.
 - `original_error` (Optional[Exception]): The original exception that caused the tool execution to fail.
+- `message` (str): Human-readable error message describing the failure.
+
+**Usage Example:**
+
+```python
+try:
+    result = client.call("code_interpreter", {"code": "invalid python code"})
+except ToolExecutionError as e:
+    print(f"Tool execution failed: {e.message}")
+    print(f"Failed tool: {e.tool_name}")
+    if e.original_error:
+        print(f"Original error: {e.original_error}")
+```
 
 ### `SchemaValidationError`
 
-Raised when a tool's schema is invalid or when arguments provided to a tool do not conform to its defined schema.
+Raised when a tool's schema is invalid or when arguments provided to a tool do not conform to its defined schema. This is a subclass of [`HAIError`](HelpingAI/error.py:7).
 
 **Attributes:**
 
 - `schema` (Optional[dict]): The schema that failed validation.
 - `value` (Optional[Any]): The value that failed against the schema.
+- `message` (str): Human-readable error message describing the validation failure.
+
+**Usage Example:**
+
+```python
+try:
+    # Invalid arguments for web_search (missing required 'query')
+    result = client.call("web_search", {"max_results": 5})
+except SchemaValidationError as e:
+    print(f"Schema validation failed: {e.message}")
+    print(f"Failed schema: {e.schema}")
+    print(f"Invalid value: {e.value}")
+```
 
 ### `ToolRegistrationError`
 
-Raised when there is an issue registering a tool with the SDK's tool registry.
+Raised when there is an issue registering a tool with the SDK's tool registry. This is a subclass of [`HAIError`](HelpingAI/error.py:7).
 
 **Attributes:**
 
 - `tool_name` (Optional[str]): The name of the tool that failed to register.
+- `message` (str): Human-readable error message describing the registration failure.
+
+**Usage Example:**
+
+```python
+try:
+    from HelpingAI.tools import register_tool
+    
+    @register_tool
+    def invalid_tool():
+        pass  # Missing required schema information
+        
+except ToolRegistrationError as e:
+    print(f"Tool registration failed: {e.message}")
+    print(f"Failed tool: {e.tool_name}")
+```
 
 ### `SchemaGenerationError`
 
-Raised when the automatic schema generation from a Python function fails (e.g., due to unsupported type hints).
+Raised when the automatic schema generation from a Python function fails (e.g., due to unsupported type hints). This is a subclass of [`HAIError`](HelpingAI/error.py:7).
 
 **Attributes:**
 
 - `function_name` (Optional[str]): The name of the function for which schema generation failed.
 - `type_hint` (Optional[Any]): The specific type hint that caused the generation error.
+- `message` (str): Human-readable error message describing the schema generation failure.
+
+**Usage Example:**
+
+```python
+try:
+    from HelpingAI.tools import Fn
+    
+    def complex_function(arg: SomeUnsupportedType) -> ComplexReturnType:
+        pass
+    
+    # This might fail if type hints are not supported
+    fn_tool = Fn.from_function(complex_function)
+    
+except SchemaGenerationError as e:
+    print(f"Schema generation failed: {e.message}")
+    print(f"Function: {e.function_name}")
+    print(f"Problematic type hint: {e.type_hint}")
+```
+
+## Error Handling Best Practices
+
+**Comprehensive Error Handling:**
+
+```python
+from HelpingAI import HAI
+from HelpingAI.error import (
+    HAIError, AuthenticationError, InvalidRequestError,
+    RateLimitError, APIConnectionError
+)
+from HelpingAI.tools.errors import ToolExecutionError
+
+client = HAI()
+
+try:
+    response = client.chat.completions.create(
+        model="Dhanishtha-2.0-preview",
+        messages=[{"role": "user", "content": "Hello!"}],
+        tools=["code_interpreter"]
+    )
+    
+    # Execute tool calls if present
+    if response.choices[0].message.tool_calls:
+        results = client.chat.completions.execute_tool_calls(
+            response.choices[0].message
+        )
+        
+except AuthenticationError as e:
+    print(f"Authentication failed: {e}")
+    # Handle API key issues
+    
+except InvalidRequestError as e:
+    print(f"Invalid request: {e}")
+    if hasattr(e, 'param') and e.param:
+        print(f"Problem with parameter: {e.param}")
+    # Handle parameter validation issues
+    
+except RateLimitError as e:
+    print(f"Rate limit exceeded: {e}")
+    if hasattr(e, 'retry_after') and e.retry_after:
+        print(f"Retry after {e.retry_after} seconds")
+    # Handle rate limiting with backoff
+    
+except ToolExecutionError as e:
+    print(f"Tool execution failed: {e}")
+    print(f"Failed tool: {e.tool_name}")
+    # Handle tool-specific errors
+    
+except APIConnectionError as e:
+    print(f"Connection error: {e}")
+    if hasattr(e, 'should_retry') and e.should_retry:
+        print("This error can be retried")
+    # Handle network issues
+    
+except HAIError as e:
+    print(f"General HAI error: {e}")
+    print(f"Status code: {e.status_code}")
+    print(f"Headers: {e.headers}")
+    # Handle any other HAI-specific errors
+    
+except Exception as e:
+    print(f"Unexpected error: {e}")
+    # Handle unexpected errors
+```
