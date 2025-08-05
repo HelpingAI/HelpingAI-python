@@ -141,13 +141,30 @@ def make_completion_with_retry(messages, max_retries=3):
 
 ### Dhanishtha-2.0-preview
 - **World's First Intermediate Thinking Model**: Multi-phase reasoning with self-correction capabilities
-- **Unique Features**: `<think>...</think>` blocks for transparent reasoning, structured emotional reasoning (SER)
+- **Unique Features**: Multiple `<think>...</think>` blocks for transparent reasoning, structured emotional reasoning (SER)
 - **Best For**: Complex problem-solving, analytical tasks, educational content, reasoning-heavy applications
 
 ### Dhanishtha-2.0-preview-mini
 - **Lightweight Reasoning Model**: Efficient version of Dhanishtha-2.0-preview
 - **Unique Features**: Same reasoning capabilities in a more compact model
 - **Best For**: Faster responses, mobile applications, resource-constrained environments
+
+### Helpingai3-raw
+- **Advanced Emotional Intelligence Model**: Enhanced contextual awareness with emotional reasoning capabilities
+- **Unique Features**: Advanced language understanding, emotional intelligence, therapeutic exchanges support
+- **Best For**: Conversational AI, emotional support, content creation, general-purpose tasks
+
+### HELVETE-X
+- **🔞 18+ Role-Playing Model**: Highly advanced NSFW model with unrestricted capabilities
+- **Unique Features**: Badass personality, uncensored responses, advanced role-playing abilities
+- **Best For**: Adult role-playing scenarios, creative writing, mature content generation
+- **⚠️ Warning**: 18+ only - Contains mature/explicit content
+
+### Dhanishtha-NSFW
+- **🔞 18+ Intermediate Thinking Model**: Similar to Dhanishtha-2.0-preview but with NSFW capabilities and role-playing specialization
+- **Unique Features**: Multiple `<think>...</think>` blocks for transparent reasoning, structured emotional reasoning (SER), plus mature content handling
+- **Best For**: Adult conversations, NSFW role-playing scenarios, mature content creation with advanced reasoning
+- **⚠️ Warning**: 18+ only - Contains mature/explicit content
 
 ```python
 # List all available models

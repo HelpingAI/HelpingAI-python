@@ -76,3 +76,4 @@ ENV/
 *.log
 lol.py
 .qodofinal_test.py
+.qodo

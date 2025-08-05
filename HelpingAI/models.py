@@ -1,6 +1,6 @@
 """HAI Models API client."""
 from dataclasses import dataclass
-from typing import List, Optional, Dict, Any, TYPE_CHECKING
+from typing import List, Optional, Dict, Any, Union, TYPE_CHECKING
 
 from .base_models import BaseModel
 
@@ -30,12 +30,33 @@ class Model(BaseModel):
         return result
 
     @classmethod
-    def from_api_data(cls, data: str) -> 'Model':
-        """Create a Model instance from API data."""
-        return cls(
-            id=data,
-            name=data
-        )
+    def from_api_data(cls, data: Union[str, Dict[str, Any]]) -> 'Model':
+        """Create a Model instance from API data.
+        
+        Args:
+            data: Either a string (HelpingAI format) or dict (OpenAI v1/models format)
+        """
+        if isinstance(data, str):
+            # HelpingAI format: just model ID string
+            return cls(
+                id=data,
+                name=data
+            )
+        elif isinstance(data, dict):
+            # OpenAI v1/models format: dict with id, object, etc.
+            return cls(
+                id=data["id"],
+                name=data.get("id", data["id"]),  # Use id as name if no separate name
+                description=data.get("description"),
+                object=data.get("object", "model")
+            )
+        else:
+            raise ValueError(f"Unsupported data format: {type(data)}")
+
+    @classmethod
+    def from_openai_data(cls, data: Dict[str, Any]) -> 'Model':
+        """Create a Model instance from OpenAI v1/models format data."""
+        return cls.from_api_data(data)
 
 class Models:
     """Models API interface."""
@@ -44,6 +65,8 @@ class Models:
 
     def list(self) -> List[Model]:
         """List all available models.
+        
+        Supports both HelpingAI format (array of strings) and OpenAI v1/models format.
 
         Returns:
             List[Model]: A list of available models.
@@ -52,27 +75,21 @@ class Models:
             APIError: If the request fails.
             AuthenticationError: If authentication fails.
         """
-        try:
-            response = self._client._request(
-                "GET",
-                "/models",
-                auth_required=False  # Models endpoint is public
-            )
-            return [Model.from_api_data(model_id) for model_id in response]
-        except Exception:
-            # Fallback to hardcoded models if API call fails
-            return [
-                Model(
-                    id="Helpingai3-raw",
-                    name="HelpingAI3 Raw",
-                    description="Advanced language model with enhanced emotional intelligence and contextual awareness"
-                ),
-                Model(
-                    id="Dhanishtha-2.0-preview",
-                    name="Dhanishtha-2.0 Preview",
-                    description="Revolutionary reasoning AI model with intermediate thinking capabilities and multi-phase reasoning"
-                )
-            ]
+        response = self._client._request(
+            "GET",
+            "/models",
+            auth_required=True  # Models endpoint is public
+        )
+        
+        # Handle different response formats
+        if isinstance(response, list):
+            # HelpingAI format: ["model1", "model2", ...] or [{"id": "model1", ...}, ...]
+            return [Model.from_api_data(model_data) for model_data in response]
+        elif isinstance(response, dict) and "data" in response:
+            # OpenAI v1/models format: {"object": "list", "data": [{"id": "model1", ...}, ...]}
+            return [Model.from_api_data(model_data) for model_data in response["data"]]
+        else:
+            raise ValueError(f"Unsupported response format: {type(response)}")
 
     def retrieve(self, model_id: str) -> Model:
         """Retrieve a specific model.
@@ -86,30 +103,12 @@ class Models:
         Raises:
             ValueError: If the model doesn't exist.
         """
-        # Define available models with detailed information
-        available_models = {
-            "Helpingai3-raw": Model(
-                id="Helpingai3-raw",
-                name="HelpingAI3 Raw",
-                description="Advanced language model with enhanced emotional intelligence, trained on emotional dialogues, therapeutic exchanges, and crisis response scenarios"
-            ),
-            "Dhanishtha-2.0-preview": Model(
-                id="Dhanishtha-2.0-preview",
-                name="Dhanishtha-2.0 Preview",
-                description="World's first intermediate thinking model with multi-phase reasoning, self-correction capabilities, and structured emotional reasoning (SER)"
-            )
-        }
-        
-        if model_id in available_models:
-            return available_models[model_id]
-        
-        # Try to get from API as fallback
-        try:
-            models = self.list()
-            for model in models:
-                if model.id == model_id:
-                    return model
-        except Exception:
-            pass
-            
-        raise ValueError(f"Model '{model_id}' not found. Available models: {list(available_models.keys())}")
+        # Get models from API
+        models = self.list()
+        for model in models:
+            if model.id == model_id:
+                return model
+                
+        # Get available model IDs for error message
+        available_model_ids = [model.id for model in models]
+        raise ValueError(f"Model '{model_id}' not found. Available models: {available_model_ids}")
