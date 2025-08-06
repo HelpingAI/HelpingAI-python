@@ -126,13 +126,16 @@ class ChatCompletions:
         seed: Optional[int] = None,
         tools: Optional[Union[List[Dict[str, Any]], List, str]] = None,
         tool_choice: Optional[Union[str, Dict[str, Any]]] = "auto",
-        hide_think: bool = False,
+        hide_think: Optional[bool] = None,
+        **kwargs
     ) -> Union[ChatCompletion, Iterator[ChatCompletionChunk]]:
-        """Create a chat completion.
-
-        Args:
+        """
+        Create a chat completion (OpenAI SDK compatible).
+        Accepts all OpenAI parameters via explicit arguments and **kwargs for future compatibility.
+        Required:
             model: Model ID to use.
             messages: List of message dicts (role/content pairs).
+        Optional:
             temperature: Sampling temperature.
             max_tokens: Maximum tokens to generate.
             top_p: Nucleus sampling parameter.
@@ -152,6 +155,7 @@ class ChatCompletions:
                 - str: Category name to get tools from registry
             tool_choice: Tool selection strategy.
             hide_think: If True, the API will filter out <think> and <ser> blocks from the output (handled server-side).
+            Any other OpenAI parameter via **kwargs.
         Returns:
             ChatCompletion or an iterator of ChatCompletionChunk (OpenAI-compatible objects).
         Raises:
@@ -159,16 +163,18 @@ class ChatCompletions:
         """
         # Convert messages to dictionaries automatically
         converted_messages = self._convert_messages_to_dicts(messages)
-        
+
         # Convert tools to OpenAI format
         converted_tools = self._convert_tools_parameter(tools)
-        
+
         json_data = {
             "model": model,
             "messages": converted_messages,
-            "stream": stream
+            "stream": stream,
+            "tools": converted_tools,
+            "tool_choice": tool_choice if converted_tools else None,
         }
-        
+
         optional_params = {
             "temperature": temperature,
             "max_tokens": max_tokens,
@@ -182,11 +188,14 @@ class ChatCompletions:
             "top_logprobs": top_logprobs,
             "response_format": response_format,
             "seed": seed,
-            "tools": converted_tools,
-            "tool_choice": tool_choice if converted_tools else None,
             "hideThink": hide_think,
         }
         json_data.update({k: v for k, v in optional_params.items() if v is not None})
+
+        # Add all other kwargs except None values
+        for k, v in kwargs.items():
+            if v is not None:
+                json_data[k] = v
 
         response = self._client._request(
             "POST",
