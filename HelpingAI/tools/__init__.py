@@ -38,6 +38,7 @@ from .builtin_tools import (
     is_builtin_tool,
     BUILTIN_TOOLS_REGISTRY
 )
+from .mcp_manager import MCPManager
 
 __version__ = "1.1.3"
 
@@ -71,6 +72,9 @@ __all__ = [
     "get_available_builtin_tools", 
     "is_builtin_tool",
     "BUILTIN_TOOLS_REGISTRY",
+    
+    # MCP integration
+    "MCPManager",
     
     # Error classes
     "ToolExecutionError",

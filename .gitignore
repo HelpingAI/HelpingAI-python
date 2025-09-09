@@ -77,5 +77,6 @@ ENV/
 lol.py
 .qodofinal_test.py
 .qodo
-merge.py
+chat.j2
 train.py
+merge.py
