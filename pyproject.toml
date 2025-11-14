@@ -45,7 +45,8 @@ Source = "https://github.com/HelpingAI/HelpingAI-python"
 Issues = "https://github.com/HelpingAI/HelpingAI-python/issues"
 
 [tool.setuptools]
-packages = ["HelpingAI"]
+[tool.setuptools.packages]
+find = { include = ["HelpingAI", "HelpingAI.*"] }
 
 [tool.setuptools.package-data]
 HelpingAI = ["py.typed"]
