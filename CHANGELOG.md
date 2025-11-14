@@ -2,6 +2,11 @@
 
 All notable changes to the HelpingAI Python SDK will be documented in this file.
 
+## [1.2.3] - 2025-11-14
+
+### Fixed
+- **📦 Package Structure**: Fixed setuptools packaging configuration to properly include all subpackages (`HelpingAI.*`), resolving `ModuleNotFoundError` when importing `HAI` from installed package
+
 ## [1.2.2] - 2025-05-08
 
 ### Added
