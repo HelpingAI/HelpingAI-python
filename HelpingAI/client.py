@@ -5,10 +5,17 @@ All classes have been moved to separate modules for better maintainability.
 """
 
 # Import all classes from the new client structure for backward compatibility
-from .client.base import BaseClient
-from .client.completions import ChatCompletions
-from .client.chat import Chat
-from .client.main import HAI
+try:
+    from .client.base import BaseClient
+    from .client.completions import ChatCompletions
+    from .client.chat import Chat
+    from .client.main import HAI
+except ImportError:
+    # Fallback for cases where relative imports don't work
+    from HelpingAI.client.base import BaseClient
+    from HelpingAI.client.completions import ChatCompletions
+    from HelpingAI.client.chat import Chat
+    from HelpingAI.client.main import HAI
 
 # Maintain backward compatibility - export all classes that were previously in this file
 __all__ = [
