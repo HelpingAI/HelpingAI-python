@@ -1456,7 +1456,7 @@ print(search_results)
 # Search for specific information
 print("\n--- Targeted Search ---")
 specific_results = client.call("web_search", {
-    "query": "OpenAI GPT-4 latest updates features",
+    "query": "GPT-4 latest updates and features",
     "max_results": 3
 })
 

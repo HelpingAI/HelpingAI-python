@@ -71,7 +71,7 @@ To receive the model's response incrementally, set the `stream` parameter to `Tr
 The HelpingAI SDK provides several flexible ways to define tools:
 -   **`@tools` decorator**: The simplest and most recommended method for defining tools from Python functions.
 -   **`Fn` class**: For programmatic tool creation, offering more control.
--   **OpenAI JSON schema**: For compatibility with existing OpenAI tool definitions.
+-   **Standard tool definition schema**: For compatibility with existing standard tool definitions.
 
 You can find detailed explanations and examples for each method in the [Defining Tools section of the Tool Calling Guide](tool_calling.md#defining-tools).
 

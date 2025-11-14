@@ -97,7 +97,7 @@ print(f"Total tokens: {response.usage.total_tokens}")
 print(f"Prompt tokens: {response.usage.prompt_tokens}")
 print(f"Completion tokens: {response.usage.completion_tokens}")
 
-# Access response as dictionary (OpenAI compatibility)
+# Access response as dictionary (standard response structure)
 response_dict = response.model_dump()
 print(f"Response ID: {response_dict['id']}")
 print(f"Created at: {response_dict['created']}")

@@ -9,13 +9,13 @@ from .errors import SchemaGenerationError
 
 
 def generate_schema_from_function(func: Callable) -> Dict[str, Any]:
-    """Generate OpenAI-compatible JSON schema from function signature.
+    """Generate a standard tool calling JSON schema from the function signature.
     
     Args:
         func: Function to analyze
         
     Returns:
-        JSON schema dict compatible with OpenAI tools format
+        JSON schema dict compatible with the standard tool calling format
         
     Raises:
         SchemaGenerationError: If schema generation fails
@@ -295,7 +295,7 @@ def _extract_param_description(docstring: str, param_name: str) -> Optional[str]
 
 
 def validate_schema(schema: Dict[str, Any]) -> bool:
-    """Validate that a schema is properly formatted for OpenAI tools.
+    """Validate that a schema is properly formatted for the standard tool calling format.
     
     Args:
         schema: Schema dictionary to validate

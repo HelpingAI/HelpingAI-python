@@ -173,7 +173,7 @@ The HelpingAI SDK offers flexible ways to define tools, allowing you to integrat
 
 1.  **`@tools` decorator**: The most straightforward way to define a tool directly from a Python function.
 2.  **`Fn` class**: Provides a programmatic approach for creating tool definitions, especially useful for tools that don't map directly to a single Python function or require dynamic creation.
-3.  **OpenAI JSON schema**: For direct compatibility with existing tool definitions in the OpenAI format.
+3.  **Standard tool definition schema**: For direct compatibility with existing tool definitions in the standard tool definition format.
 
 ### Method 1: The `@tools` Decorator
 
@@ -695,7 +695,7 @@ get_registry().register(weather_api_tool)
 - **Built-in Validation**: Automatic parameter validation against the provided schema using [`_validate_arguments()`](HelpingAI/tools/core.py:98)
 - **Error Handling**: Comprehensive error handling with [`ToolExecutionError`](HelpingAI/tools/errors.py) and [`SchemaValidationError`](HelpingAI/tools/errors.py)
 - **Flexible Function Binding**: Support for functions, methods, lambdas, and callables
-- **OpenAI Compatibility**: Converts to standard OpenAI tool format via [`to_tool_format()`](HelpingAI/tools/core.py:29)
+- **Function-Calling Compatibility**: Converts to the standard tool calling format via [`to_tool_format()`](HelpingAI/tools/core.py:29)
 - **Direct Execution**: Call tools directly with [`call()`](HelpingAI/tools/core.py:51) method
 
 **Converting Functions to Fn Objects:**
@@ -782,19 +782,19 @@ robust_tool = Fn(
 )
 ```
 
-### Method 3: OpenAI JSON Schema
+### Method 3: Standard Tool Definition Schema
 
-For maximum compatibility and integration with existing systems, you can define tools directly using the standard OpenAI JSON schema format. This is useful if you already have tool definitions in this format or if you prefer to define your schemas explicitly.
+For maximum compatibility and integration with existing systems, you can define tools directly using the standard tool definition schema format. This is useful if you already have tool definitions in this format or if you prefer to define your schemas explicitly.
 
 When using this method, you typically don't provide a `function` callable directly within the tool definition itself. Instead, you would map the tool's `name` to your internal Python functions when handling the tool calls from the model.
 
-**Basic OpenAI Format Examples:**
+**Basic Standard Tool Definition Format Examples:**
 
 ```python
 from typing import Dict, Any
 
-# Define a tool using the OpenAI JSON schema format
-openai_tools_list = [
+# Define a tool using the standard tool definition schema format
+standard_tool_definitions = [
     {
         "type": "function",
         "function": {
@@ -850,17 +850,17 @@ def _get_current_time_impl(timezone: str) -> Dict[str, Any]:
         return {"error": "Unknown timezone", "timezone": timezone}
 
 # This mapping would be used when handling tool_calls from the model
-openai_tool_implementations = {
+standard_tool_implementations = {
     "get_stock_price": _get_stock_price_impl,
     "get_current_time": _get_current_time_impl,
 }
 ```
 
-**Advanced OpenAI Schema Examples:**
+**Advanced Standard Tool Definition Schema Examples:**
 
 ```python
 # Complex tool with nested objects and arrays
-complex_openai_tools = [
+complex_tool_definitions = [
     {
         "type": "function",
         "function": {
@@ -1117,7 +1117,7 @@ def _analyze_document_impl(**kwargs) -> Dict[str, Any]:
         return analysis_results
 
 # Extended tool implementations mapping
-extended_openai_tool_implementations = {
+extended_tool_implementations = {
     "get_stock_price": _get_stock_price_impl,
     "get_current_time": _get_current_time_impl,
     "create_calendar_event": _create_calendar_event_impl,
@@ -1131,13 +1131,13 @@ extended_openai_tool_implementations = {
 from HelpingAI import HAI
 
 # Pattern 1: Direct usage with manual tool call handling
-def handle_openai_tools_manually():
+def handle_standard_tool_definitions_manually():
     client = HAI()
     
     response = client.chat.completions.create(
         model="Dhanishtha-2.0-preview",
         messages=[{"role": "user", "content": "What's the current stock price of AAPL?"}],
-        tools=openai_tools_list  # Use OpenAI format directly
+        tools=standard_tool_definitions  # Use standard tool definitions directly
     )
     
     # Handle tool calls manually
@@ -1147,29 +1147,29 @@ def handle_openai_tools_manually():
             tool_args = json.loads(tool_call.function.arguments)
             
             # Execute using our implementation mapping
-            if tool_name in openai_tool_implementations:
-                result = openai_tool_implementations[tool_name](**tool_args)
+            if tool_name in standard_tool_implementations:
+                result = standard_tool_implementations[tool_name](**tool_args)
                 print(f"Tool {tool_name} result: {result}")
 
-# Pattern 2: Convert OpenAI tools to Fn objects for unified handling
-def convert_openai_to_fn_objects():
+# Pattern 2: Convert standard tool definitions to Fn objects for unified handling
+def convert_standard_tool_definitions_to_fn_objects():
     from HelpingAI.tools import Fn, get_registry
     
-    # Convert OpenAI format to Fn objects
-    for tool_def in openai_tools_list:
+    # Convert standard tool definition format to Fn objects
+    for tool_def in standard_tool_definitions:
         func_def = tool_def["function"]
         tool_name = func_def["name"]
         
-        if tool_name in openai_tool_implementations:
+        if tool_name in standard_tool_implementations:
             fn_tool = Fn(
                 name=tool_name,
                 description=func_def["description"],
                 parameters=func_def["parameters"],
-                function=openai_tool_implementations[tool_name]
+                function=standard_tool_implementations[tool_name]
             )
             get_registry().register(fn_tool)
     
-    print("OpenAI tools converted and registered as Fn objects")
+    print("Standard tool definitions converted and registered as Fn objects")
 
 # Pattern 3: Mixed tool usage (combining formats)
 def use_mixed_tool_formats():
@@ -1180,7 +1180,7 @@ def use_mixed_tool_formats():
     # Combine different tool formats
     all_tools = (
         get_tools() +  # @tools decorated and Fn registered tools
-        openai_tools_list +  # OpenAI format tools
+        standard_tool_definitions +  # Standard tool definition tools
         ["code_interpreter", "web_search"]  # Built-in tools
     )
     
@@ -1197,8 +1197,8 @@ def use_mixed_tool_formats():
 
 ```python
 # Example of comprehensive schema validation
-def create_robust_openai_tool(name: str, description: str, parameters: Dict[str, Any], implementation: callable) -> Dict[str, Any]:
-    """Create a robust OpenAI tool with validation."""
+def create_robust_standard_tool_definition(name: str, description: str, parameters: Dict[str, Any], implementation: callable) -> Dict[str, Any]:
+    """Create a robust standard tool definition with validation."""
     
     # Validate schema structure
     required_schema_keys = ["type", "properties"]
@@ -1258,7 +1258,7 @@ The HelpingAI SDK provides seamless compatibility between different tool definit
 1. **String Identifiers**: Built-in tool names (`"code_interpreter"`, `"web_search"`)
 2. **`@tools` Decorated Functions**: Automatically registered in global registry
 3. **`Fn` Objects**: Programmatically created tools with full control
-4. **OpenAI JSON Schema**: Standard OpenAI-compatible tool definitions
+4. **Standard Tool Definition Schema**: Standard tool definitions
 5. **MCP Server Configurations**: Model Context Protocol server integrations
 
 **Format Conversion Examples:**
@@ -1297,8 +1297,8 @@ currency_converter = Fn(
     }
 )
 
-# OpenAI format
-openai_format_tool = {
+# Standard tool definition format
+standard_tool_definition_template = {
     "type": "function",
     "function": {
         "name": "get_weather_forecast",
@@ -1323,7 +1323,7 @@ mixed_tools = [
     "web_search",                # Built-in tool
     calculate_tip,               # @tools decorated function
     currency_converter,          # Fn object
-    openai_format_tool          # OpenAI format
+    standard_tool_definition_template          # Standard tool definition format
 ]
 
 response = client.chat.completions.create(
@@ -1335,23 +1335,23 @@ response = client.chat.completions.create(
 
 **Automatic Format Detection:**
 
-The SDK's [`ensure_openai_format()`](HelpingAI/tools/compatibility.py) function handles automatic conversion:
+The SDK's [`ensure_tool_call_format()`](HelpingAI/tools/compatibility.py) function handles automatic conversion:
 
 ```python
-from HelpingAI.tools.compatibility import ensure_openai_format
+from HelpingAI.tools.compatibility import ensure_tool_call_format
 
 # Example of how the SDK processes different tool formats
 def demonstrate_format_conversion():
     # Mixed input formats
     mixed_tools = [
         "code_interpreter",                    # String identifier
-        {"type": "function", "function": {...}}, # OpenAI format
+        {"type": "function", "function": {...}}, # Standard tool definition format
         Fn(name="test", description="...", parameters={}, function=lambda: None),  # Fn object
         calculate_tip,                         # Decorated function
     ]
     
-    # SDK automatically converts all to OpenAI format
-    openai_compatible_tools = ensure_openai_format(mixed_tools)
+    # SDK automatically converts all to the standard tool definition format
+    converted_standard_tools = ensure_tool_call_format(mixed_tools)
     
     # All tools are now in standard format:
     # [
@@ -1361,7 +1361,7 @@ def demonstrate_format_conversion():
     #     {"type": "function", "function": {"name": "calculate_tip", ...}}
     # ]
     
-    return openai_compatible_tools
+    return converted_standard_tools
 ```
 
 **Best Practices for Tool Format Selection:**
@@ -1386,14 +1386,14 @@ complex_tool = Fn(
     function=lambda **kwargs: complex_processing_logic(**kwargs)
 )
 
-# 4. Use OpenAI format when integrating with existing systems
+# 4. Use the standard tool definition format when integrating with existing systems
 legacy_integration_tools = [
     {
         "type": "function",
         "function": {
             "name": "legacy_system_call",
             "description": "Call legacy system API",
-            "parameters": existing_openai_schema
+            "parameters": existing_standard_schema
         }
     }
 ]
@@ -1411,7 +1411,7 @@ def create_comprehensive_toolset():
         # Advanced custom tools (Fn objects)
         *[tool for tool in get_registry().list_tools() if "advanced_" in tool.name],
         
-        # External system integrations (OpenAI format)
+        # External system integrations (standard tool definition format)
         *load_external_tool_definitions(),
         
         # MCP server tools
@@ -1454,7 +1454,7 @@ The HelpingAI SDK supports multiple flexible formats for the `tools` parameter, 
 2. **String Categories**: Use category names to load tool groups
 3. **Function References**: Pass decorated functions directly
 4. **Fn Objects**: Include programmatically created tools
-5. **OpenAI Format**: Standard OpenAI tool definitions
+5. **Standard Tool Definition Format**: Standard tool definitions
 6. **MCP Configurations**: Model Context Protocol server setups
 
 ```python
@@ -1480,7 +1480,7 @@ mixed_tools = [
     "code_interpreter",              # Built-in tool string
     "web_search",                   # Built-in tool string
     custom_calculator,              # @tools decorated function
-    {                              # OpenAI format tool
+    {                              # Standard tool definition format tool
         "type": "function",
         "function": {
             "name": "format_currency",
@@ -2502,7 +2502,7 @@ Here's a typical workflow for handling tool calls:
 4.  **Continue Conversation**: Send the original user message, the model's tool call message, and the new tool response messages back to the model in a new `client.chat.completions.create()` call. This allows the model to use the tool's output to generate a final, informed response.
 
 ```python
-# ... (assuming client, messages, response, registered_tools, openai_tool_implementations are defined from previous examples) ...
+# ... (assuming client, messages, response, registered_tools, standard_tool_implementations are defined from previous examples) ...
 
 message = response.choices[0].message
 
@@ -2527,9 +2527,9 @@ if message.tool_calls:
             if function_name in registered_tools.keys(): # Check tools defined with @tools or Fn
                 # Use client.call() for tools registered with the client
                 result = client.call(function_name, function_args)
-            elif function_name in openai_tool_implementations: # Check tools defined with OpenAI JSON schema
-                # For OpenAI JSON schema tools, call their direct Python implementation
-                result = openai_tool_implementations[function_name](**function_args)
+            elif function_name in standard_tool_implementations: # Check tools defined with the standard tool definition schema
+                # For standard tool definition schema tools, call their direct Python implementation
+                result = standard_tool_implementations[function_name](**function_args)
             else:
                 print(f"  Error: Tool '{function_name}' not found in any registry.")
                 result = {"error": f"Tool '{function_name}' not found."}
@@ -2674,7 +2674,7 @@ results = direct_tool_usage()
 
 ## Traditional vs Enhanced Patterns
 
-The HelpingAI SDK offers both traditional OpenAI-compatible patterns and enhanced workflows. Here's a comprehensive comparison:
+The HelpingAI SDK offers both traditional standard tool definition patterns and enhanced workflows. Here's a comprehensive comparison:
 
 ### Pattern Comparison Overview
 
@@ -2695,7 +2695,7 @@ The HelpingAI SDK offers both traditional OpenAI-compatible patterns and enhance
 ```python
 # Manual tool definition and mapping
 def traditional_tool_setup():
-    openai_tools = [
+    legacy_tool_definitions = [
         {
             "type": "function",
             "function": {
@@ -2717,7 +2717,7 @@ def traditional_tool_setup():
         "calculate": lambda expression: eval(expression)  # Simplified
     }
     
-    return openai_tools, tool_implementations
+    return legacy_tool_definitions, tool_implementations
 
 tools, implementations = traditional_tool_setup()
 ```

@@ -60,7 +60,7 @@ def example_mixed_tools():
     
     client = HAI(api_key="your-api-key")
     
-    # Mix MCP servers with regular OpenAI-format tools
+    # Mix MCP servers with regular standard tool definitions
     tools = [
         # MCP servers configuration
         {
@@ -71,7 +71,7 @@ def example_mixed_tools():
                 }
             }
         },
-        # Regular OpenAI-format tool
+        # Regular standard tool definition
         {
             "type": "function",
             "function": {

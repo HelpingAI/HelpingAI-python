@@ -70,8 +70,8 @@ class ChatCompletions:
     ) -> ChatCompletionMessage:
         """Create an assistant message with automatic tool call conversion.
         
-        This helper method makes it easy to create assistant messages that are
-        fully compatible with OpenAI's format, automatically converting ToolCall
+        This helper method makes it easy to create assistant messages that follow
+        the standard function-calling format, automatically converting ToolCall
         objects to the proper dictionary format when needed.
         
         Args:
@@ -130,8 +130,8 @@ class ChatCompletions:
         **kwargs
     ) -> Union[ChatCompletion, Iterator[ChatCompletionChunk]]:
         """
-        Create a chat completion (OpenAI SDK compatible).
-        Accepts all OpenAI parameters via explicit arguments and **kwargs for future compatibility.
+        Create a chat completion (compatible with standard function-calling SDK patterns).
+        Accepts all standard function-calling parameters via explicit arguments and **kwargs for future compatibility.
         Required:
             model: Model ID to use.
             messages: List of message dicts (role/content pairs).
@@ -150,21 +150,21 @@ class ChatCompletions:
             response_format: Response format options.
             seed: Random seed for deterministic results.
             tools: Tool/function call definitions. Supports multiple formats:
-                - List[Dict]: OpenAI tool format (existing)
+                - List[Dict]: Standard tool definition format (existing)
                 - List[Fn]: Fn objects from @tools decorator
                 - str: Category name to get tools from registry
             tool_choice: Tool selection strategy.
             hide_think: If True, the API will filter out <think> and <ser> blocks from the output (handled server-side).
-            Any other OpenAI parameter via **kwargs.
+            Any other standard function-calling parameter via **kwargs.
         Returns:
-            ChatCompletion or an iterator of ChatCompletionChunk (OpenAI-compatible objects).
+            ChatCompletion or an iterator of ChatCompletionChunk (standard completion objects).
         Raises:
             HAIError or its subclasses on error.
         """
         # Convert messages to dictionaries automatically
         converted_messages = self._convert_messages_to_dicts(messages)
 
-        # Convert tools to OpenAI format
+        # Convert tools to the standard tool calling format
         converted_tools = self._convert_tools_parameter(tools)
 
         json_data = {
@@ -212,13 +212,13 @@ class ChatCompletions:
         self,
         tools: Optional[Union[List[Dict[str, Any]], List, str]]
     ) -> Optional[List[Dict[str, Any]]]:
-        """Convert various tools formats to OpenAI format.
+        """Convert various tools formats to the standard tool calling format.
         
         Args:
             tools: Tools in various formats
             
-        Returns:
-            List of OpenAI-compatible tool definitions or None
+            Returns:
+            List of standard tool definitions or None
         """
         if tools is None:
             return None
@@ -229,8 +229,8 @@ class ChatCompletions:
         self._client._mcp_manager = None  # Clear cached MCP manager
         
         try:
-            from ..tools.compatibility import ensure_openai_format
-            return ensure_openai_format(tools)
+            from ..tools.compatibility import ensure_tool_call_format
+            return ensure_tool_call_format(tools)
         except ImportError:
             # Fallback if tools module not available - treat as legacy format
             import warnings
@@ -252,18 +252,18 @@ class ChatCompletions:
                 warnings.warn(
                     f"Tool conversion failed: {e}. "
                     f"Available built-in tools: {available_tools}. "
-                    f"For custom tools, use OpenAI tool format. Using legacy behavior."
+                    f"For custom tools, use the standard tool definition format. Using legacy behavior."
                 )
             elif "Unsupported tool item type" in error_msg:
                 warnings.warn(
                     f"Tool conversion failed: {e}. "
-                    f"Tools must be strings (built-in tool names), dicts (OpenAI format), "
+                    f"Tools must be strings (built-in tool names), dicts (standard tool definition schema), "
                     f"or MCP server configs. Using legacy behavior."
                 )
             elif "Unsupported tools format" in error_msg:
                 warnings.warn(
                     f"Tool conversion failed: {e}. "
-                    f"Supported formats: None, string (category), List[Dict] (OpenAI format), "
+                    f"Supported formats: None, string (category), List[Dict] (standard tool definitions), "
                     f"List[str] (built-in tools), or List[Fn]. Using legacy behavior."
                 )
             elif "Failed to initialize MCP tools" in error_msg:
@@ -304,7 +304,7 @@ class ChatCompletions:
                             }
                         })
                     elif isinstance(item, dict) and "type" in item and item.get("type") == "function":
-                        # Keep valid OpenAI format tools
+                        # Keep valid standard tool definitions
                         filtered_tools.append(item)
                     # Skip MCP server configs and other problematic items
                 
@@ -365,7 +365,7 @@ class ChatCompletions:
             content: Tool execution result as string
             
         Returns:
-            Message dict in OpenAI format
+            Message dict in the standard tool calling format
         """
         return {
             "role": "tool",

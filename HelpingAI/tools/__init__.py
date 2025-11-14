@@ -25,7 +25,7 @@ from .errors import (
 )
 from .compatibility import (
     ensure_tool_format,
-    ensure_openai_format,
+    ensure_tool_call_format,
     convert_legacy_tools,
     merge_tool_lists,
     create_fn_from_tool_dict,
@@ -60,7 +60,7 @@ __all__ = [
     
     # Compatibility utilities
     "ensure_tool_format",
-    "ensure_openai_format",
+    "ensure_tool_call_format",
     "convert_legacy_tools",
     "merge_tool_lists",
     "create_fn_from_tool_dict",

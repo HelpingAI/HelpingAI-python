@@ -1,4 +1,4 @@
-"""HAI API client with OpenAI-like interface.
+"""HAI API client with a familiar function-calling interface.
 
 This module provides backward compatibility by importing from the new client structure.
 All classes have been moved to separate modules for better maintainability.

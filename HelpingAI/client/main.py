@@ -46,7 +46,7 @@ class HAI(BaseClient):
         
         Args:
             tools: Tools configuration in any supported format:
-                - List containing MCP server configs, built-in tool names, OpenAI format tools
+                - List containing MCP server configs, built-in tool names, standard tool definitions
                 - String identifier for built-in tools
                 - None to clear tools configuration
                 
@@ -100,7 +100,7 @@ class HAI(BaseClient):
             tools: Tools in various formats
             
         Returns:
-            List of OpenAI-compatible tool definitions or None
+            List of standard tool definitions or None
         """
         return self.chat.completions._convert_tools_parameter(tools)
         

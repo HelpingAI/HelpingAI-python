@@ -106,7 +106,7 @@ def create(
 - `response_format` (Dict[str, str], optional): An object specifying the format that the model must output. Currently, the only supported format is `{"type": "json_object"}` for JSON mode. When using JSON mode, you must instruct the model to produce JSON in the system or user message. Defaults to `None`.
 - `seed` (int, optional): This feature is in Beta. If specified, our system will make a best effort to sample deterministically, such that repeated requests with the same `seed` and parameters should return the same result. This is useful for reproducibility. Defaults to `None`.
 - `tools` (Optional[Union[List[Dict[str, Any]], List[Fn], str]]): A list of tools the model may call. This parameter supports various formats for flexibility:
-    - `List[Dict[str, Any]]`: A list of tool definitions in the OpenAI tool format (e.g., `{"type": "function", "function": {"name": "my_tool", ...}}`).
+    - `List[Dict[str, Any]]`: A list of tool definitions in the standard tool definition format (e.g., `{"type": "function", "function": {"name": "my_tool", ...}}`).
     - `List[Fn]`: A list of `Fn` objects, which are programmatic representations of tools created using the `@tools` decorator or `Fn` class.
     - `str`: A category name (e.g., `"built_in"`) to automatically include a predefined set of tools from the SDK's registry.
   Defaults to `None`.
@@ -320,7 +320,7 @@ Configures the set of tools available for the `HAI` client instance. Tools confi
 **Parameters:**
 
 - `tools` (Optional[Union[List[Dict[str, Any]], List, str]], required): The tools configuration. This can be:
-    - `List[Dict[str, Any]]`: A list of tool definitions in the OpenAI tool format, including MCP server configurations.
+    - `List[Dict[str, Any]]`: A list of tool definitions in the standard tool definition format, including MCP server configurations.
     - `List[str]`: A list of built-in tool names (e.g., `"code_interpreter"`, `"web_search"`).
     - `None`: Clears any previously configured tools.
 
@@ -365,7 +365,7 @@ Creates an assistant message with automatic tool call conversion, making it easy
 
 **Returns:**
 
-- `ChatCompletionMessage`: Properly formatted message object compatible with OpenAI format
+- `ChatCompletionMessage`: Properly formatted message object compatible with the standard tool definition format
 
 ### `client.chat.completions.execute_tool_calls(...)`
 

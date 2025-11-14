@@ -42,13 +42,13 @@ def example_built_in_tools():
         if "400" in str(e) and "stream" in str(e).lower():
             print("💡 Tip: Try setting stream=True")
 
-def example_openai_format_tools():
-    """Example: Using OpenAI-format tools correctly."""
-    print("\n=== Example 2: OpenAI Format Tools ===")
+def example_standard_tool_format_tools():
+    """Example: Using standard tool definition format correctly."""
+    print("\n=== Example 2: Standard Tool Definitions ===")
     
     client = HAI(api_key=os.getenv("HAI_API_KEY", "your-api-key"))
     
-    # ✅ CORRECT: OpenAI tool format
+    # ✅ CORRECT: Standard tool definition format
     tools = [
         {
             "type": "function",
@@ -75,7 +75,7 @@ def example_openai_format_tools():
             messages=[{"role": "user", "content": "Calculate 15 * 23"}],
             tools=tools
         )
-        print("✅ Request successful with OpenAI format tools")
+        print("✅ Request successful with standard tool definitions")
         
     except Exception as e:
         print(f"❌ Error: {e}")
@@ -121,7 +121,7 @@ def example_mixed_tools():
     
     client = HAI(api_key=os.getenv("HAI_API_KEY", "your-api-key"))
     
-    # ✅ CORRECT: Mix built-in tools with OpenAI format
+    # ✅ CORRECT: Mix built-in tools with standard tool definitions
     tools = [
         "code_interpreter",  # Built-in tool
         {
@@ -190,7 +190,7 @@ def common_mistakes():
     # ✅ CORRECT alternatives
     print("\n✅ DO: Use correct formats")
     print("   tools = ['code_interpreter', 'web_search']  # Built-in tools")
-    print("   tools = [{'type': 'function', ...}]  # OpenAI format")
+    print("   tools = [{'type': 'function', ...}]  # Standard tool definition format")
     print("   tools = [{'mcpServers': {...}}]  # MCP format")
 
 def troubleshooting_tips():
@@ -209,7 +209,7 @@ def troubleshooting_tips():
     
     print("\n🔧 If you get 'Unknown built-in tool' errors:")
     print("   - Available built-in tools: code_interpreter, web_search")
-    print("   - For custom tools, use OpenAI format with 'type': 'function'")
+    print("   - For custom tools, use the standard tool definition format with 'type': 'function'")
     
     print("\n🔧 For MCP tools:")
     print("   - Install MCP dependencies: pip install 'HelpingAI[mcp]'")
@@ -228,7 +228,7 @@ if __name__ == "__main__":
     
     # Run examples
     example_built_in_tools()
-    example_openai_format_tools()
+    example_standard_tool_format_tools()
     example_mcp_tools()
     example_mixed_tools()
     example_streaming_usage()

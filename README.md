@@ -8,13 +8,13 @@ The official Python library for the [HelpingAI](https://helpingai.co) API - Adva
 
 ## 🚀 Features
 
-- **OpenAI-Compatible API**: Drop-in replacement with familiar interface
+- **Function-Calling Friendly API**: Drop-in replacement with familiar interface
 - **Emotional Intelligence**: Advanced AI models with emotional understanding
 - **MCP Integration**: Seamless connection to external tools via Model Context Protocol servers
 - **Tool Calling Made Easy**: [`@tools decorator`](HelpingAI/tools/core.py:144) for effortless function-to-tool conversion
 - **Direct Tool Execution**: Simple `.call()` method for executing tools without registry manipulation
 - **Automatic Schema Generation**: Type hint-based JSON schema creation with docstring parsing
-- **Universal Tool Compatibility**: Seamless integration with OpenAI-format tools
+- **Universal Tool Compatibility**: Seamless integration with standard tool definition schemas
 - **Streaming Support**: Real-time response streaming
 - **Comprehensive Error Handling**: Detailed error types and retry mechanisms
 - **Type Safety**: Full type hints and IDE support
@@ -258,7 +258,7 @@ print(response.choices[0].message.content)
 Mix MCP servers with regular tools:
 
 ```python
-# Regular OpenAI tools
+# Regular tool definitions
 regular_tools = [{
     "type": "function",
     "function": {
@@ -446,12 +446,12 @@ if registry.has_tool("get_weather"):
 
 #### Universal Tool Compatibility
 
-Seamlessly combine [`@tools`](HelpingAI/tools/core.py:144) functions with existing OpenAI-format tools:
+Seamlessly combine [`@tools`](HelpingAI/tools/core.py:144) functions with existing standard tool definitions:
 
 ```python
 from HelpingAI.tools import merge_tool_lists, ensure_tool_format
 
-# Existing OpenAI-format tools
+# Existing standard tool definitions
 legacy_tools = [{
     "type": "function",
     "function": {

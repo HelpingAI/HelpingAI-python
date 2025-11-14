@@ -34,7 +34,7 @@ class Model(BaseModel):
         """Create a Model instance from API data.
         
         Args:
-            data: Either a string (HelpingAI format) or dict (OpenAI v1/models format)
+            data: Either a string (HelpingAI format) or dict (v1/models schema)
         """
         if isinstance(data, str):
             # HelpingAI format: just model ID string
@@ -43,7 +43,7 @@ class Model(BaseModel):
                 name=data
             )
         elif isinstance(data, dict):
-            # OpenAI v1/models format: dict with id, object, etc.
+            # v1/models schema: dict with id, object, etc.
             return cls(
                 id=data["id"],
                 name=data.get("id", data["id"]),  # Use id as name if no separate name
@@ -54,8 +54,8 @@ class Model(BaseModel):
             raise ValueError(f"Unsupported data format: {type(data)}")
 
     @classmethod
-    def from_openai_data(cls, data: Dict[str, Any]) -> 'Model':
-        """Create a Model instance from OpenAI v1/models format data."""
+    def from_v1_models_data(cls, data: Dict[str, Any]) -> 'Model':
+        """Create a Model instance from the v1/models schema data."""
         return cls.from_api_data(data)
 
 class Models:
@@ -66,7 +66,7 @@ class Models:
     def list(self) -> List[Model]:
         """List all available models.
         
-        Supports both HelpingAI format (array of strings) and OpenAI v1/models format.
+        Supports both HelpingAI format (array of strings) and v1/models schema.
 
         Returns:
             List[Model]: A list of available models.
@@ -86,7 +86,7 @@ class Models:
             # HelpingAI format: ["model1", "model2", ...] or [{"id": "model1", ...}, ...]
             return [Model.from_api_data(model_data) for model_data in response]
         elif isinstance(response, dict) and "data" in response:
-            # OpenAI v1/models format: {"object": "list", "data": [{"id": "model1", ...}, ...]}
+            # v1/models schema: {"object": "list", "data": [{"id": "model1", ...}, ...]}
             return [Model.from_api_data(model_data) for model_data in response["data"]]
         else:
             raise ValueError(f"Unsupported response format: {type(response)}")

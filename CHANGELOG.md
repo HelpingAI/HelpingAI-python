@@ -6,13 +6,17 @@ All notable changes to the HelpingAI Python SDK will be documented in this file.
 
 ### Fixed
 - **📦 Package Structure**: Fixed setuptools packaging configuration to properly include all subpackages (`HelpingAI.*`), resolving `ModuleNotFoundError` when importing `HAI` from installed package
+- **🛠️ Import Paths**: Corrected import paths in `HelpingAI/__init__.py` to ensure all client submodules are accessible when importing the main `HelpingAI` package
+- **🔄 Backward Compatibility**: Verified that existing code importing `HAI` from `HelpingAI` continues to function correctly after refactoring
+- **🧹 Code Cleanup**: Removed redundant imports and streamlined `HelpingAI/__init__.py` for clarity and maintainability
+- updated documentation to reflect correct import paths and usage examples
 
 ## [1.2.2] - 2025-05-08
 
 ### Added
-- **🔄 Multi-Format API Support**: Enhanced models API to support both HelpingAI format (array of strings) and OpenAI v1/models compatible format
+- **🔄 Multi-Format API Support**: Enhanced models API to support both HelpingAI format (array of strings) and v1/models schema format
 - **🔧 Auto-Detection**: Automatic detection of response format in `list()` method for seamless compatibility
-- **🔗 OpenAI Compatibility**: New `from_openai_data()` method for explicit OpenAI v1/models format handling
+- **🔗 v1 Models Schema Support**: New `from_v1_models_data()` method for explicit v1/models schema handling
 - **📊 Custom Logging System**: New `HelpingAI/logging.py` with structured logging, colored output, and environment configuration (may get replaced with LITPRINTER)
 - **🎨 Enhanced Error Diagnostics**: Advanced error parsing with helpful suggestions and context-aware recommendations 
 
@@ -26,7 +30,7 @@ All notable changes to the HelpingAI Python SDK will be documented in this file.
 
 ### Enhanced
 - **🧠 Simplified Think Logic**: Simplified complex `hide_think` parameter logic as it is now internally handled by HelpingAI's backend
-- **🎯 Flexible Data Handling**: `Model.from_api_data()` now accepts both string (HelpingAI format) and dict (OpenAI format) inputs
+- **🎯 Flexible Data Handling**: `Model.from_api_data()` now accepts both string (HelpingAI format) and dict (v1/models schema) inputs
 - **🔍 Better Error Reporting**: Error messages now show actual available models from API responses
 - **🧩 Format Agnostic**: Seamless handling of different API response structures without breaking changes
 - **🛠️ Advanced Error Handling**: Modular error parsing with helper methods for message extraction, model name detection, and streaming suggestions
@@ -39,9 +43,9 @@ All notable changes to the HelpingAI Python SDK will be documented in this file.
 ### Added
 - **🔌 MCP Integration**: Full [Model context Protocol (MCP)](docs/mcp_integration.md) support for external tool connections
 - **🖥️ Multiple Transport Types**: Support for stdio, SSE, and streamable-http MCP servers
-- **🔄 Automatic Tool Discovery**: MCP tools automatically converted to OpenAI-compatible format
+- **🔄 Automatic Tool Discovery**: MCP tools automatically converted to the standard tool calling format
 - **📁 Resource Support**: Built-in `list_resources` and `read_resource` tools for MCP resources
-- **🔀 Mixed Tools Support**: Seamlessly combine MCP servers with regular OpenAI-format tools
+- **🔀 Mixed Tools Support**: Seamlessly combine MCP servers with regular standard tool definitions
 - **⚡ Process Management**: Automatic cleanup of MCP server processes on exit
 - **🔁 Reconnection Logic**: Handles server disconnections automatically
 - **🛡️ Graceful Error Handling**: Works without MCP package installed with helpful error messages
@@ -68,7 +72,7 @@ All notable changes to the HelpingAI Python SDK will be documented in this file.
 - New comprehensive [Tool Calling Guide](docs/tool_calling.md)
 
 ### Changed
-- **🔄 Universal Compatibility**: Seamless integration with existing OpenAI-format tools
+- **🔄 Universal Compatibility**: Seamless integration with existing standard tool definitions
 - **Updated Models**: Support for latest models (Dhanishtha-2.0-preview, Dhanishtha-2.0-preview-mini)
 - **Improved Model Management**: Better fallback handling and detailed model descriptions
 - **Simplified Tool Execution**: Direct tool calling with `client.call(tool_name, arguments)` syntax
@@ -79,7 +83,7 @@ All notable changes to the HelpingAI Python SDK will be documented in this file.
 - **🛡️ Enhanced Tool Error Handling**: Comprehensive exception types for tool operations
 - **Dhanishtha-2.0 Integration**: World's first intermediate thinking model with multi-phase reasoning
 - **Dhanishtha Models**: Advanced reasoning capabilities with transparent thinking processes
-- **OpenAI-Compatible Interface**: Familiar API design
+- **Function-Calling Friendly Interface**: Familiar API design
 - **Enhanced Error Handling**: Comprehensive exception types
 
 ## [1.1.2] - 2025-06-15

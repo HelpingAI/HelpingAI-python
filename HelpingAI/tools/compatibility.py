@@ -332,14 +332,14 @@ def get_compatibility_helper() -> ToolCompatibilityHelper:
     return _compatibility_helper
 
 
-def _convert_fns_to_tools(fns: Optional[List[Fn]]) -> List[Dict[str, Any]]:
-    """Convert Fn objects to OpenAI tool format.
+def _convert_fns_to_tool_defs(fns: Optional[List[Fn]]) -> List[Dict[str, Any]]:
+    """Convert Fn objects to the standard tool calling format.
     
     Args:
         fns: List of Fn objects
         
     Returns:
-        List of tool definitions in OpenAI format
+        List of tool definitions in the standard tool calling format
     """
     if not fns:
         return []
@@ -359,13 +359,13 @@ def _convert_fns_to_tools(fns: Optional[List[Fn]]) -> List[Dict[str, Any]]:
 
 
 def _handle_builtin_tool(tool_name: str) -> Optional[Dict[str, Any]]:
-    """Handle built-in tool identifier and return tool in OpenAI format.
+    """Handle built-in tool identifier and return tool in the standard tool calling format.
     
     Args:
         tool_name: Name of the built-in tool
         
     Returns:
-        Tool definition in OpenAI format, or None if tool not found
+        Tool definition in the standard tool calling format, or None if tool not found
     """
     try:
         from .builtin_tools import get_builtin_tool_class, is_builtin_tool
@@ -380,7 +380,7 @@ def _handle_builtin_tool(tool_name: str) -> Optional[Dict[str, Any]]:
         # Create an instance of the tool
         tool_instance = tool_class()
         
-        # Convert to Fn and then to OpenAI format
+        # Convert to Fn and then to the standard tool calling format
         fn_obj = tool_instance.to_fn()
         return fn_obj.to_tool_format()
         
@@ -390,13 +390,13 @@ def _handle_builtin_tool(tool_name: str) -> Optional[Dict[str, Any]]:
 
 
 def _handle_mcp_servers_config(mcp_config: Dict[str, Any]) -> List[Dict[str, Any]]:
-    """Handle MCP (Model Context Protocol) servers configuration and return tools in OpenAI format.
+    """Handle MCP (Model Context Protocol) servers configuration and return tools in the standard tool calling format.
     
     Args:
         mcp_config: MCP (Model Context Protocol) servers configuration dictionary
         
     Returns:
-        List of tools in OpenAI format from MCP servers
+        List of tools in the standard tool calling format from MCP servers
         
     Raises:
         ImportError: If MCP dependencies are not available
@@ -415,8 +415,8 @@ def _handle_mcp_servers_config(mcp_config: Dict[str, Any]) -> List[Dict[str, Any
     try:
         mcp_tools = manager.init_config(mcp_config)
         
-        # Convert to OpenAI format
-        return _convert_fns_to_tools(mcp_tools)
+        # Convert to the standard tool calling format
+        return _convert_fns_to_tool_defs(mcp_tools)
         
     except Exception as e:
         # Provide helpful error message based on the error type
@@ -451,23 +451,23 @@ def _handle_mcp_servers_config(mcp_config: Dict[str, Any]) -> List[Dict[str, Any
             raise ValueError(f"Failed to initialize MCP tools: {e}") from e
 
 
-def ensure_openai_format(tools: Optional[Union[List[Union[Dict[str, Any], str]], List[Fn], str]]) -> Optional[List[Dict[str, Any]]]:
-    """Ensure tools are in OpenAI format regardless of input type.
+def ensure_tool_call_format(tools: Optional[Union[List[Union[Dict[str, Any], str]], List[Fn], str]]) -> Optional[List[Dict[str, Any]]]:
+    """Ensure tools are in the standard tool calling format regardless of input type.
     
-    This function handles the conversion from various tool formats to the exact
-    OpenAI tool calling format.
+    This function handles conversion from various tool formats into the
+    standard tool calling format, which is used for tool/function calls.
     
     Args:
         tools: Tools in various formats:
             - None: No tools
             - str: Category name to get from registry
-            - List[Dict]: Already in OpenAI format, or MCP servers config
+            - List[Dict]: Already in the standard tool calling format, or MCP servers config
             - List[str]: Built-in tool identifiers
-            - List[mixed]: Mix of MCP configs, built-in tool names, and OpenAI format tools
+            - List[mixed]: Mix of MCP configs, built-in tool names, and standard tool definitions
             - List[Fn]: Fn objects to convert
             
     Returns:
-        List of tool definitions in OpenAI format or None
+        List of tool definitions in the standard tool calling format or None
         
     Raises:
         ValueError: If tools format is not supported
@@ -479,7 +479,7 @@ def ensure_openai_format(tools: Optional[Union[List[Union[Dict[str, Any], str]],
         # Category name - get from registry
         from .core import get_tools
         fn_tools = get_tools(names=[tools] if tools else None)
-        return _convert_fns_to_tools(fn_tools)
+        return _convert_fns_to_tool_defs(fn_tools)
     
     if isinstance(tools, list):
         if not tools:
@@ -510,7 +510,7 @@ def ensure_openai_format(tools: Optional[Union[List[Union[Dict[str, Any], str]],
                     )
                     # Continue processing other tools instead of failing
             
-            # Handle regular OpenAI tool format
+            # Handle regular tool definition format
             elif isinstance(item, dict) and "type" in item:
                 all_tools.append(item)
             
@@ -524,4 +524,4 @@ def ensure_openai_format(tools: Optional[Union[List[Union[Dict[str, Any], str]],
         return all_tools
     
     raise ValueError(f"Unsupported tools format: {type(tools)}. "
-                    f"Expected None, str, List[Dict], List[str], or List[Fn].")
+                    f"Expected None, str, List[Dict], List[str], or List[Fn] in the standard tool calling format.")

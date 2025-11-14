@@ -1,6 +1,6 @@
 """HAI API Library.
 
-This library provides an interface to the HelpingAI API that is similar to OpenAI's Python package.
+This library provides an interface to the HelpingAI API that follows the familiar function-calling Python package layout.
 
 Basic usage:
     from hai import HAI
