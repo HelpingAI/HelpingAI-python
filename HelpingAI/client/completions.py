@@ -171,9 +171,22 @@ class ChatCompletions:
             "model": model,
             "messages": converted_messages,
             "stream": stream,
-            "tools": converted_tools,
-            "tool_choice": tool_choice if converted_tools else None,
         }
+
+        # Only add tools/tool_choice if tools were converted to a valid list
+        if converted_tools is not None:
+            json_data["tools"] = converted_tools
+            # Normalize tool_choice if tools compatibility helpers are available
+            normalized_tool_choice = tool_choice
+            try:
+                from ..tools.compatibility import normalize_tool_choice
+                normalized_tool_choice = normalize_tool_choice(tool_choice, converted_tools)
+            except Exception:
+                # If compatibility helpers aren't available, use the original value
+                normalized_tool_choice = tool_choice
+
+            if normalized_tool_choice is not None:
+                json_data["tool_choice"] = normalized_tool_choice
 
         optional_params = {
             "temperature": temperature,
